@@ -45,13 +45,14 @@ class DesktopLayer {
       }
       running=false;
     });
-    bool? previous=null;
+    bool? previous=null;IntPtr desktop=IntPtr.Zero;
     while(running&&IsWindow(rug)){
       uint owner;GetWindowThreadProcessId(rug,out owner);if(owner!=expected)break;
       bool available=false;
       if(interactive){available=true;}
       else {
-        IntPtr desktop=Desktop();
+        // Reuse the desktop owner between ticks; rediscover after Explorer replaces it.
+        if(desktop==IntPtr.Zero||!IsWindow(desktop)||!IsWindowVisible(desktop)||FindWindowEx(desktop,IntPtr.Zero,"SHELLDLL_DefView",null)==IntPtr.Zero)desktop=Desktop();
         if(desktop!=IntPtr.Zero){
           // Win+D may minimize normal app windows. The rug stays part of the desktop.
           if(IsIconic(rug))ShowWindow(rug,4); // SW_SHOWNOACTIVATE

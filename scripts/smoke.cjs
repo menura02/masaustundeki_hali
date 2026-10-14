@@ -47,6 +47,24 @@ app.on('browser-window-created', (_event, win) => {
       assert.equal(await evaluate(`document.getElementById('file-count').offsetParent===null`),true);
       assert.equal(await evaluate(`getComputedStyle(document.getElementById('resize-frame')).visibility`),'hidden');
       assert.equal(await evaluate(`document.getElementById('toolbar').hidden`),true);
+      if(process.argv.includes('--performance-only')){
+        await evaluate(`window.paintCount=0;const originalClear=CanvasRenderingContext2D.prototype.clearRect;CanvasRenderingContext2D.prototype.clearRect=function(...args){window.paintCount++;return originalClear.apply(this,args);};true;`);
+        await evaluate(`new Promise(resolve=>setTimeout(resolve,1200))`);
+        const idle=await evaluate(`window.paintCount`);
+        await evaluate(`new Promise(resolve=>setTimeout(resolve,500))`);
+        assert.equal(await evaluate(`window.paintCount`),idle,'resting rug must stop painting');
+        await evaluate(`document.querySelector('[data-theme="indigo"]').click();new Promise(resolve=>setTimeout(resolve,100))`);
+        assert.ok(await evaluate(`window.paintCount`)>idle,'changing color must wake the renderer');
+        win.hide();await evaluate(`new Promise(resolve=>setTimeout(resolve,200))`);
+        const hidden=await evaluate(`window.paintCount`);
+        await evaluate(`new Promise(resolve=>setTimeout(resolve,300))`);
+        assert.equal(await evaluate(`window.paintCount`),hidden,'hidden rug must stop painting');
+        win.showInactive();await evaluate(`new Promise(resolve=>setTimeout(resolve,100))`);
+        assert.ok(await evaluate(`window.paintCount`)>hidden,'showing the rug must restore painting');
+        assert.deepEqual(errors,[]);
+        log('PASS: idle/hidden rug stops painting; theme changes and showing the window resume painting.');
+        clearTimeout(timeout);win.destroy();app.exit(0);return;
+      }
       if(process.argv.includes('--menu-dismiss-only')){
         const open=async()=>{
           await evaluate(`document.getElementById('rug').dispatchEvent(new MouseEvent('contextmenu',{clientX:560,clientY:500,bubbles:true,cancelable:true}));`);

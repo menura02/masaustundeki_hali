@@ -1,21 +1,20 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
-test('cloth stays finite during dragging, release and stacked collisions',async()=>{
+
+test('cloth stays finite during dragging and release',async()=>{
   const {Cloth}=await import('../ui/cloth.mjs');const cloth=new Cloth(500,360,100,100);
-  cloth.bumps=Array.from({length:8},()=>({u:.5,v:.5}));
   cloth.grab={index:0,x:450,y:300,z:130};for(let i=0;i<90;i++)cloth.step();cloth.grab=null;
   for(let i=0;i<180;i++)cloth.step();
   for(const p of cloth.points){assert.ok(Number.isFinite(p.x)&&Number.isFinite(p.y)&&Number.isFinite(p.z));assert.ok(p.z>=0);}
-  assert.ok(cloth.points.some(p=>p.z>25));
 });
-test('resize preserves the opposite anchor, bumps and material dimensions',async()=>{
+test('resize preserves the opposite anchor and material dimensions',async()=>{
   const {Cloth}=await import('../ui/cloth.mjs');const cloth=new Cloth(500,360,100,100);
-  cloth.bumps=[{u:.5,v:.5}];cloth.resize(700,400,50,70);
+  cloth.resize(700,400,50,70);
   assert.equal(cloth.points[0].x,50);assert.equal(cloth.points.at(-1).x,750);
-  assert.equal(cloth.points.at(-1).y,470);assert.equal(cloth.bumps.length,1);
+  assert.equal(cloth.points.at(-1).y,470);
   for(let i=0;i<100;i++)cloth.step();
   const center=cloth.points[Math.floor(cloth.rows/2)*(cloth.cols+1)+Math.floor(cloth.cols/2)];
-  assert.ok(center.z>10);assert.ok(Math.abs(center.x-400)<20);
+  assert.equal(center.z,0);assert.ok(Math.abs(center.x-400)<20);
 });
 test('grip eases toward the pointer and flatten settles without teleporting',async()=>{
   const {Cloth}=await import('../ui/cloth.mjs');const cloth=new Cloth(500,360,100,100);

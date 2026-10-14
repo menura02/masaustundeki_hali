@@ -14,7 +14,7 @@ Görsel, örnek dosyalarla çalışan önizleme modundan alınmıştır. Normal 
 - **Ayarlanabilir ağırlık:** Hafif kumaş daha kolay kalkar ve daha uzun dalgalanır; ağır kumaş daha dirençli hareket eder ve daha çabuk oturur.
 - **Ayrı boyutlandırma modu:** Normal sürükleme boyutlandırmayı tetiklemez. Sağ tık menüsünden açılan modda kenar ve köşe tutamaçları görünür.
 - **Üç dokuma rengi:** Kök boya, gece mavisi ve yosun yeşili. Doku yerel olarak Canvas ile üretilir.
-- **Dosya saklama ve geri getirme:** Masaüstünden bırakılan dosya ve klasörler geri alınabilir biçimde saklanır. Aynı yerde biriken dosyalar kabarıklık oluşturur.
+- **Dosya saklama ve geri getirme:** Masaüstünden bırakılan dosya ve klasörler geri alınabilir biçimde saklanır. Dosya saklamak veya geri getirmek halının görünümünü ve fiziğini değiştirmez.
 - **Sağ tık menüsü:** Renk, ağırlık, boyutlandırma, kapalı simge ve saklanan dosya bilgileri burada bulunur. Normal görünümde altta sayaç veya ayar çubuğu yoktur.
 - **Oturum açılışında başlatma:** Windows ve kurulu macOS `.app` sürümünde kullanılabilir; macOS sistem onayı gerekiyorsa arayüz bunu gösterir.
 - **Menü çubuğu / sistem tepsisi ve kısayol:** Halıyı gösterme, gizleme ve düzeltme.
@@ -107,7 +107,7 @@ Adres: [http://127.0.0.1:4173](http://127.0.0.1:4173). Tarayıcı önizlemesi ge
 
 Renk, ağırlık, boyut ve konum yeniden açılışta hatırlanır. Başlangıç durumu işletim sisteminden okunur; uygulama ilk açılışta kendiliğinden başlangıca eklenmez. Windows geliştirme klasörünü taşırsanız başlangıç seçeneğini kapatıp yeniden açın.
 
-**Kapalı simge** sayısı ile **saklanan dosya** sayısı farklıdır. Merkezi halının görünür şekli altında kalan masaüstü simgeleri ayrıca sayılır; bu işlem dosyaları taşımaz. Kabarıklıklar ise halıya bırakılarak saklanan dosyalardan oluşur. macOS'ta Finder izni reddedilmişse sıfır yerine kullanılamıyor durumu gösterilir.
+**Kapalı simge** sayısı ile **saklanan dosya** sayısı farklıdır. Merkezi halının görünür şekli altında kalan masaüstü simgeleri ayrıca sayılır; bu işlem dosyaları taşımaz. macOS'ta Finder izni reddedilmişse sıfır yerine kullanılamıyor durumu gösterilir.
 
 ## Saklanan dosyalar ve kurtarma
 
@@ -170,9 +170,12 @@ Odaklı arayüz kontrolleri:
 npx electron scripts/smoke.cjs --counters-only
 npx electron scripts/smoke.cjs --menu-dismiss-only
 npx electron scripts/smoke.cjs --startup-only
+npx electron scripts/smoke.cjs --performance-only
 ```
 
 Başlangıç testi Windows kayıt defterine yazmak yerine bellek içi bir işletim sistemi adaptörü kullanır. Gerçek oturum açılışı ve macOS masaüstü davranışı ayrıca cihaz üzerinde doğrulanmalıdır.
+
+Kaynak kullanımı için halı durulduğunda veya pencere gizlendiğinde çizim döngüsü durur; etkileşimle yeniden başlar. Masaüstü simgeleri yalnızca sağ tık menüsü veya dosya listesi açıkken taranır. Animasyon sırasında üçgen ağı yeniden kullanılır ve ekranın yalnızca halının kapladığı bölgesi temizlenir. Performans arayüz testi boşta/gizliyken çizimin durmasını ve renk değişimi/pencere gösterimiyle yeniden başlamasını kontrol eder.
 
 İlk cihaz doğrulaması için [platform test listesi](docs/platform-testing.md) kullanılabilir.
 

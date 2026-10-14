@@ -2,6 +2,7 @@ const { contextBridge, ipcRenderer, webUtils } = require('electron');
 contextBridge.exposeInMainWorld('hali', {
   init: () => ipcRenderer.invoke('hali:init'),
   icons: () => ipcRenderer.invoke('hali:icons'),
+  watchIcons: active => ipcRenderer.send('hali:icons-watch',Boolean(active)),
   startupStatus: () => ipcRenderer.invoke('hali:startup-status'),
   setStartup: enabled => ipcRenderer.invoke('hali:startup-set', enabled),
   startupSettings: () => ipcRenderer.invoke('hali:startup-settings'),

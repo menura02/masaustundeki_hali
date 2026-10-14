@@ -1,7 +1,7 @@
 export class Cloth {
   constructor(width, height, x, y, cols = 32, rows = 24) {
     Object.assign(this, { width, height, x, y, cols, rows });
-    this.points = []; this.links = []; this.grab = null; this.bumps = []; this.flattening = false;
+    this.points = []; this.links = []; this.grab = null; this.flattening = false;
     this.setWeight(.5);
     for (let j = 0; j <= rows; j++) for (let i = 0; i <= cols; i++) {
       const px = x + i * width / cols, py = y + j * height / rows;
@@ -19,6 +19,17 @@ export class Cloth {
       if (i < cols - 1) link(k, k + 2, .12);
       if (j < rows - 1) link(k, k + (cols + 1) * 2, .12);
     }
+    this.mesh=[];
+    for(let j=0;j<rows;j++)for(let i=0;i<cols;i++){
+      const a=j*(cols+1)+i,b=a+1,c=a+cols+1,d=c+1;
+      this.mesh.push([this.points[a],this.points[b],this.points[c]],[this.points[b],this.points[d],this.points[c]]);
+    }
+    this.drawOrder=this.mesh.slice();
+    this.boundary=[];
+    for(let i=0;i<=cols;i++)this.boundary.push(this.points[i]);
+    for(let j=1;j<=rows;j++)this.boundary.push(this.points[j*(cols+1)+cols]);
+    for(let i=cols-1;i>=0;i--)this.boundary.push(this.points[rows*(cols+1)+i]);
+    for(let j=rows-1;j>0;j--)this.boundary.push(this.points[j*(cols+1)]);
   }
   setWeight(value){
     this.weight=Number.isFinite(value)?Math.max(0,Math.min(1,value)):.5;
@@ -27,15 +38,6 @@ export class Cloth {
     this.motion={gravity:.18+.4*w,airDrag:.985-.04*w,groundDrag:.8-.16*w,
       gripFollow:.36-.24*w,liftFollow:.32-.24*w,gripStrength:.21-.1*w,
       bend:.55+.9*w,rebound:.2-.16*w,lift:1.3-.6*w,moveFollow:.48-.32*w};
-  }
-  ground(p) {
-    let height = 0;
-    for (const bump of this.bumps) {
-      const dx = (p.x - (this.x + bump.u * this.width)) / 30;
-      const dy = (p.y - (this.y + bump.v * this.height)) / 27;
-      height += 19 * Math.exp(-(dx * dx + dy * dy) / 2);
-    }
-    return Math.min(100, height);
   }
   step() {
     const motion=this.motion;
@@ -48,7 +50,6 @@ export class Cloth {
       c.z += (this.grab.z-c.z)*motion.liftFollow;
     }
     for (const p of this.points) {
-      p.ground += (this.ground(p)-p.ground)*.12;
       const friction=p.z<=p.ground+.8?motion.groundDrag:motion.airDrag+.01;
       const vx = Math.max(-18,Math.min(18,(p.x-p.ox)*friction));
       const vy = Math.max(-18,Math.min(18,(p.y-p.oy)*friction));
@@ -101,16 +102,15 @@ export class Cloth {
     this.y=center.y/this.points.length-this.height/2;
     for(const p of this.points){p.ox=p.x;p.oy=p.y;}
   }
-  ripple(u,v,strength){for(const p of this.points){const d=Math.hypot((p.u-u)*this.width,(p.v-v)*this.height);p.oz-=strength*Math.exp(-d*d/(2*65*65));}}
   translate(dx, dy) {
     this.x += dx; this.y += dy;
     for (const p of this.points) { p.x += dx; p.ox += dx; p.y += dy; p.oy += dy; }
   }
   project(p) { return { x: p.x, y: p.y - p.z * .6 }; }
   bounds(){
-    const points=this.points.map(p=>this.project(p));
-    const x=Math.min(...points.map(p=>p.x)),y=Math.min(...points.map(p=>p.y));
-    return {x,y,width:Math.max(...points.map(p=>p.x))-x,height:Math.max(...points.map(p=>p.y))-y};
+    let x=Infinity,y=Infinity,right=-Infinity,bottom=-Infinity;
+    for(const p of this.points){const py=p.y-p.z*.6;x=Math.min(x,p.x);y=Math.min(y,py);right=Math.max(right,p.x);bottom=Math.max(bottom,py);}
+    return {x,y,width:right-x,height:bottom-y};
   }
   nearest(x, y) {
     let index = 0, distance = Infinity;
@@ -118,19 +118,21 @@ export class Cloth {
     return { index, distance, point: this.points[index] };
   }
   triangles() {
-    const result = [];
-    for (let j = 0; j < this.rows; j++) for (let i = 0; i < this.cols; i++) {
-      const a = j * (this.cols + 1) + i, b = a + 1, c = a + this.cols + 1, d = c + 1;
-      result.push([this.points[a], this.points[b], this.points[c]], [this.points[b], this.points[d], this.points[c]]);
-    }
-    return result.sort((a, b) => a.reduce((s,p) => s+p.z,0) - b.reduce((s,p) => s+p.z,0));
+    return this.drawOrder.sort((a,b)=>(a[0].z+a[1].z+a[2].z)-(b[0].z+b[1].z+b[2].z));
   }
   contains(x, y) {
-    return this.triangles().some(t => {
-      const [a,b,c] = t.map(p => this.project(p));
-      const sign = (p,q,r) => (p.x-r.x)*(q.y-r.y)-(q.x-r.x)*(p.y-r.y);
-      const p = {x,y}, d1 = sign(p,a,b), d2 = sign(p,b,c), d3 = sign(p,c,a);
-      return !((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0));
-    });
+    const bounds=this.bounds();
+    if(x<bounds.x||y<bounds.y||x>bounds.x+bounds.width||y>bounds.y+bounds.height)return false;
+    for(const [a,b,c] of this.mesh){
+      const ay=a.y-a.z*.6,by=b.y-b.z*.6,cy=c.y-c.z*.6;
+      // Edge-on triangles have no clickable area.
+      if(Math.abs((b.x-a.x)*(cy-ay)-(c.x-a.x)*(by-ay))<1e-8)continue;
+      const d1=(x-b.x)*(ay-by)-(a.x-b.x)*(y-by);
+      const d2=(x-c.x)*(by-cy)-(b.x-c.x)*(y-cy);
+      const d3=(x-a.x)*(cy-ay)-(c.x-a.x)*(y-ay);
+      if(!((d1<0||d2<0||d3<0)&&(d1>0||d2>0||d3>0)))return true;
+    }
+    return false;
   }
+  isResting(tolerance=.04){return !this.grab&&this.points.every(p=>Math.abs(p.x-p.ox)<tolerance&&Math.abs(p.y-p.oy)<tolerance&&Math.abs(p.z-p.oz)<tolerance);}
 }

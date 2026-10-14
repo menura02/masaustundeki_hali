@@ -10,7 +10,7 @@ function parseFinderResult(stdout) {
     icons: data.available ? data.icons.filter(p => typeof p.name === 'string' && Number.isFinite(p.x) && Number.isFinite(p.y)).map(p => ({ name:p.name, x:p.x, y:p.y, width:0, height:0 })) : [] };
 }
 class MacDesktopIcons {
-  constructor({ run = promisify(execFile), interval = 1000, scriptPath = path.join(__dirname,'FinderIcons.js') } = {}) {
+  constructor({ run = promisify(execFile), interval = 5000, scriptPath = path.join(__dirname,'FinderIcons.js') } = {}) {
     this.run = run; this.interval = interval; this.generation = 0;
     this.scriptPath = scriptPath;
     this.state = { available:false, icons:[], coordinateSpace:'dip' };

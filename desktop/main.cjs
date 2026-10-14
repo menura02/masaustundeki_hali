@@ -10,6 +10,7 @@ const { WindowsDesktop } = require('./windows-desktop.cjs');
 const demo = process.argv.includes('--demo');
 let win, tray, vault, settings = {}, nativeLayer, saveTimer;
 let desktopIcons,windowsDesktop;
+let iconsWatching=false;
 let contextMenuOpen = false;
 const uiURL = pathToFileURL(path.join(__dirname, '../ui/index.html')).href;
 if (!app.requestSingleInstanceLock()) app.quit();
@@ -25,7 +26,7 @@ function attachDesktop() {
 }
 async function boot() {
   const startup = new Startup(app, { demo });
-  if(!demo){desktopIcons=new DesktopIcons(path.join(app.getPath('userData'),'icon-reader'),{resources:app.isPackaged?process.resourcesPath:undefined});desktopIcons.start().catch(console.error);}
+  if(!demo)desktopIcons=new DesktopIcons(path.join(app.getPath('userData'),'icon-reader'),{resources:app.isPackaged?process.resourcesPath:undefined});
   if (!demo) vault = await new Vault(app.getPath('desktop')).init();
   if (!demo && process.platform === 'win32') execFile('attrib.exe', ['+H', vault.root], { windowsHide: true }, error => { if (error) console.warn(error.message); });
   const settingsPath = path.join(app.getPath('userData'), 'rug.json');
@@ -69,8 +70,17 @@ async function boot() {
   });
   ipcMain.handle('hali:icons-retry',async event=>{
     if(!trusted(event)||demo)throw new Error('Simge okuyucu kullanılamıyor.');
-    desktopIcons.stop();await desktopIcons.start();return desktopIcons.snapshot();
+    desktopIcons.stop();await desktopIcons.start();const state=desktopIcons.snapshot();if(!iconsWatching)desktopIcons.stop();return state;
   });
+  ipcMain.on('hali:icons-watch',(event,active)=>{
+    if(!trusted(event)||demo)return;
+    const watch=Boolean(active)&&win.isVisible();
+    if(watch===iconsWatching)return;
+    iconsWatching=watch;
+    if(!watch)desktopIcons.stop();
+    else if(!desktopIcons.snapshot().permissionRequired)desktopIcons.start().catch(console.error);
+  });
+  win.on('hide',()=>{iconsWatching=false;desktopIcons?.stop();});
   ipcMain.handle('hali:stash', async (event, paths, position) => {
     if (!trusted(event) || demo) throw new Error('Dosya işlemi kullanılamıyor.');
     try { return await vault.stash(paths, position); } finally { publish(); }

@@ -2,6 +2,7 @@ import { Cloth } from './cloth.mjs';
 import { texture } from './texture.mjs';
 import { resizeEdge, resizeBounds } from './resize.mjs';
 import { coveredIcons } from './coverage.mjs';
+import { FrameLoop } from './frame-loop.mjs';
 const $ = id => document.getElementById(id);
 const api = window.hali;
 let config = api ? await api.init() : { demo: true, entries: [], settings: {} };
@@ -13,6 +14,9 @@ let controlsTimer, pointer={x:-1,y:-1};
 let resizeMode=false;
 let suppressContextMenuUntil=0;
 let startupState=config.startup??{supported:false,enabled:false},startupBusy=false;
+let iconsTimer,iconsWatching=false,iconsGeneration=0;
+let accumulator=0,restFrames=0,redraw=true,lastPaint=null;
+const frameLoop=new FrameLoop(animate);
 function syncStartup(){
   $('startup-control').hidden=!['win32','darwin'].includes(config.platform);
   $('startup-label').textContent=config.platform==='darwin'?'macOS ile birlikte başlat':'Windows ile birlikte başlat';
@@ -55,12 +59,21 @@ $('icons-retry').onclick=async()=>{
   try{desktopState=await api.retryIcons();coveredNames='';updateCoverage();notify(desktopState.available?'Masaüstü simgeleri okunuyor.':'Simge erişimini kontrol edip yeniden deneyin.');}
   catch(error){notify(error.message);}finally{$('icons-retry').disabled=false;}
 };
-async function pollIcons(){
-  if(demo||!api?.icons){$('icon-count').hidden=true;return;}
-  try{desktopState=await api.icons();}catch{desktopState={available:false,icons:[]};}
-  updateCoverage();setTimeout(pollIcons,700);
+function syncIconPolling(){
+  const active=!demo&&Boolean(api?.icons)&&!document.hidden&&(!$('toolbar').hidden||!$('drawer').hidden);
+  if(active===iconsWatching)return;
+  iconsWatching=active;clearTimeout(iconsTimer);const generation=++iconsGeneration;
+  api?.watchIcons?.(active);
+  if(active)pollIcons(generation);
 }
-function wake(){awakeUntil=performance.now()+6000;}
+async function pollIcons(generation){
+  let state;
+  try{state=await api.icons();}catch{state={available:false,icons:[]};}
+  if(generation!==iconsGeneration||!iconsWatching)return;
+  desktopState=state;
+  updateCoverage();iconsTimer=setTimeout(()=>pollIcons(generation),1500);
+}
+function wake(){awakeUntil=performance.now()+6000;restFrames=0;redraw=true;frameLoop.wake();}
 function edgeAt(x,y){
   if(!resizeMode)return '';
   const edge=resizeEdge(cloth,x,y);
@@ -87,6 +100,7 @@ function closeControls(){
   const wasOpen=!$('toolbar').hidden;
   clearTimeout(controlsTimer);$('toolbar').hidden=true;
   if(wasOpen)api?.menuOpen?.(false);
+  syncIconPolling();
   activeMouse(cloth.contains(pointer.x,pointer.y)||Boolean(edgeAt(pointer.x,pointer.y))||isUI(document.elementFromPoint(pointer.x,pointer.y)));
 }
 function fitControls(){
@@ -98,6 +112,7 @@ function fitControls(){
 function openControls(x,y){
   refreshStartup();
   $('toolbar').hidden=false;
+  syncIconPolling();
   const r=$('toolbar').getBoundingClientRect();
   $('toolbar').style.left=`${Math.max(12,Math.min(width-r.width-12,x+10))}px`;
   $('toolbar').style.top=`${Math.max(12,Math.min(height-r.height-12,y+10))}px`;
@@ -119,14 +134,13 @@ function makeCloth(center,size){
   const defaultW=Math.min(570,width*.52,Math.max(150,height-top-135)*840/600);
   const w=Math.max(180,Math.min(width-40,size?.w??defaultW)),h=Math.max(125,Math.min(height-40,size?.h??defaultW*600/840));
   cloth=new Cloth(w,h,Math.max(20,Math.min(width-w-20,(center?.x??width*.47)-w/2)),Math.max(20,Math.min(height-h-20,(center?.y??(demo?top+h/2:height*.5))-h/2)));
-  cloth.bumps=entries;
   cloth.setWeight(weight/100);
   wake();
 }
 function resize(){
   const size=cloth?{w:cloth.width/width*innerWidth,h:cloth.height/height*innerHeight}:config.settings.w&&config.settings.h?{w:config.settings.w*innerWidth,h:config.settings.h*innerHeight}:null;
   const center=cloth?{x:(cloth.x+cloth.width/2)/width*innerWidth,y:(cloth.y+cloth.height/2)/height*innerHeight}:config.settings.x?{x:config.settings.x*innerWidth,y:config.settings.y*innerHeight}:null;
-  width=innerWidth;height=innerHeight;const dpr=Math.min(devicePixelRatio,2);canvas.width=width*dpr;canvas.height=height*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);makeCloth(center,size);positionUI();renderSamples();
+  width=innerWidth;height=innerHeight;const dpr=Math.min(devicePixelRatio,2);canvas.width=width*dpr;canvas.height=height*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);lastPaint=null;makeCloth(center,size);positionUI();renderSamples();
 }
 function positionUI(){
   const x=Math.max(165,Math.min(width-165,cloth.x+cloth.width/2));
@@ -135,7 +149,7 @@ function positionUI(){
   Object.assign($('resize-frame').style,{left:`${cloth.x}px`,top:`${cloth.y}px`,width:`${cloth.width}px`,height:`${cloth.height}px`});
   Object.assign($('resize-help').style,{left:`${Math.max(160,Math.min(width-160,cloth.x+cloth.width/2))}px`,top:`${Math.max(10,Math.min(height-48,cloth.y+cloth.height+12))}px`});
 }
-function update(data){const added=data.filter(item=>!entries.some(e=>e.id===item.id));entries=data;cloth.bumps=entries;for(const item of added)cloth.ripple(item.u,item.v,4);wake();$('file-count').textContent=`${entries.length} saklanan`;$('drawer-number').textContent=String(entries.length).padStart(2,'0');renderDrawer();renderSamples();showControls();}
+function update(data){entries=data;$('file-count').textContent=`${entries.length} saklanan`;$('drawer-number').textContent=String(entries.length).padStart(2,'0');renderDrawer();renderSamples();showControls();}
 function renderDrawer(){
   $('entries').replaceChildren();
   if(!entries.length){const p=document.createElement('p');p.className='empty';p.textContent='Şimdilik yalnızca huzur var.';$('entries').append(p);}
@@ -286,15 +300,18 @@ function drawTriangle(tri){
     ctx.fillStyle=gradient;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.lineTo(c.x,c.y);ctx.closePath();ctx.fill();
   }
 }
-let previous=0,accumulator=0;
-function animate(now){
-  if(now>awakeUntil&&!drag){previous=now;requestAnimationFrame(animate);return;}
-  const elapsed=Math.min(50,now-previous);previous=now;accumulator+=elapsed;
+function animate(now,elapsed){
+  if(now>awakeUntil&&!drag)return false;
+  accumulator+=elapsed;
+  let stepped=false;
   while(accumulator>=1000/60){
-    cloth.step();accumulator-=1000/60;
+    cloth.step();accumulator-=1000/60;stepped=true;
+    restFrames=cloth.isResting()?restFrames+1:0;
   }
-  positionUI();
-  ctx.clearRect(0,0,width,height);
+  if(!stepped&&!redraw)return true;
+  redraw=false;
+  if(lastPaint)ctx.clearRect(lastPaint.x,lastPaint.y,lastPaint.width,lastPaint.height);
+  else ctx.clearRect(0,0,width,height);
   const triangles=cloth.triangles();
   for(let j=0;j<=cloth.rows;j++)for(let i=0;i<=cloth.cols;i++){
     const p=cloth.points[j*(cloth.cols+1)+i];
@@ -305,11 +322,10 @@ function animate(now){
     p.shade=Math.max(0,Math.min(.48,.81-(nx*-.3+ny*-.4+Math.abs(nz)*.866)/length));
   }
   // A single silhouette casts a soft shadow; avoid per-triangle shadow seams.
-  const boundary=[];for(let i=0;i<=cloth.cols;i++)boundary.push(cloth.points[i]);
-  for(let j=1;j<=cloth.rows;j++)boundary.push(cloth.points[j*(cloth.cols+1)+cloth.cols]);
-  for(let i=cloth.cols-1;i>=0;i--)boundary.push(cloth.points[cloth.rows*(cloth.cols+1)+i]);
-  for(let j=cloth.rows-1;j>0;j--)boundary.push(cloth.points[j*(cloth.cols+1)]);
+  const boundary=cloth.boundary;
   const lift=Math.max(...boundary.map(p=>p.z));
+  const b=cloth.bounds(),padding=Math.ceil(48+lift*.4);
+  lastPaint={x:Math.floor(b.x-padding),y:Math.floor(b.y-padding),width:Math.ceil(b.width+2*padding+2),height:Math.ceil(b.height+2*padding+2)};
   ctx.save();ctx.shadowColor='#22271955';ctx.shadowBlur=14+lift*.13;ctx.shadowOffsetY=9+lift*.08;ctx.fillStyle='#30291f60';ctx.beginPath();boundary.forEach((p,i)=>{const q=cloth.project(p);ctx[i?'lineTo':'moveTo'](q.x,q.y);});ctx.closePath();ctx.fill();ctx.restore();
   triangles.forEach(drawTriangle);
   // Short cotton fringe follows the deformed left and right selvedges.
@@ -318,6 +334,7 @@ function animate(now){
     const a=cloth.project(cloth.points[j*(cloth.cols+1)+(side?cloth.cols:0)]),b=cloth.project(cloth.points[(j+1)*(cloth.cols+1)+(side?cloth.cols:0)]),t=k/3,x=a.x+(b.x-a.x)*t,y=a.y+(b.y-a.y)*t;
     ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+(side?8:-8),y+2);ctx.stroke();
   }
-  requestAnimationFrame(animate);
+  return Boolean(drag)||restFrames<20;
 }
-resize();update(entries);syncTheme();syncWeight();syncStartup();pollIcons();requestAnimationFrame(animate);
+document.addEventListener('visibilitychange',()=>{frameLoop.setPaused(document.hidden);syncIconPolling();if(!document.hidden)wake();});
+resize();update(entries);syncTheme();syncWeight();syncStartup();$('icon-count').hidden=demo;frameLoop.setPaused(document.hidden);
