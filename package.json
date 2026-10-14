@@ -10,9 +10,10 @@
     "preview": "node scripts/preview.cjs",
     "test": "node --test test/*.test.cjs",
     "test:app": "electron scripts/smoke.cjs",
+    "test:native": "electron scripts/native-smoke.cjs",
     "native": "node scripts/build-native.cjs",
     "dist:mac": "npm run native && electron-builder --mac --universal",
-    "dist:win": "electron-builder --win"
+    "dist:win": "npm run native && electron-builder --win"
   },
   "devDependencies": {
     "electron": "^42.0.0",
@@ -21,10 +22,13 @@
   "build": {
     "appId": "studio.hali.desktop",
     "productName": "Halı",
+    "npmRebuild": false,
     "files": ["desktop/**", "ui/**", "native/build/*.node", "package.json"],
-    "asarUnpack": ["native/build/*.node"],
-    "mac": {"target": ["dmg", "zip"], "category": "public.app-category.utilities", "hardenedRuntime": true},
-    "win": {"target": ["nsis" ]},
+    "asarUnpack": ["native/build/*.node", "desktop/FinderIcons.js"],
+    "mac": {"target": ["dmg", "zip"], "category": "public.app-category.utilities", "hardenedRuntime": true,
+      "entitlements":"native/entitlements.mac.plist", "entitlementsInherit":"native/entitlements.mac.plist",
+      "extendInfo":{"NSAppleEventsUsageDescription":"Halı, altında kalan masaüstü simgelerini saymak için Finder'dan simge adlarını ve konumlarını okur. Dosyaları değiştirmez."}},
+    "win": {"target": ["nsis" ],"extraResources":[{"from":"native/build","to":"helpers","filter":["*.exe"]}]},
     "nsis": {"oneClick": false, "allowToChangeInstallationDirectory": true}
   }
 }

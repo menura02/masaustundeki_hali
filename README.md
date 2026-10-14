@@ -16,24 +16,24 @@ Görsel, örnek dosyalarla çalışan önizleme modundan alınmıştır. Normal 
 - **Üç dokuma rengi:** Kök boya, gece mavisi ve yosun yeşili. Doku yerel olarak Canvas ile üretilir.
 - **Dosya saklama ve geri getirme:** Masaüstünden bırakılan dosya ve klasörler geri alınabilir biçimde saklanır. Aynı yerde biriken dosyalar kabarıklık oluşturur.
 - **Sağ tık menüsü:** Renk, ağırlık, boyutlandırma, kapalı simge ve saklanan dosya bilgileri burada bulunur. Normal görünümde altta sayaç veya ayar çubuğu yoktur.
-- **Windows başlangıç seçeneği:** İstenirse Windows oturumu açılırken başlar.
+- **Oturum açılışında başlatma:** Windows ve kurulu macOS `.app` sürümünde kullanılabilir; macOS sistem onayı gerekiyorsa arayüz bunu gösterir.
 - **Menü çubuğu / sistem tepsisi ve kısayol:** Halıyı gösterme, gizleme ve düzeltme.
 
 ## Platform durumu
 
-**macOS sürümü için kod ve paketleme yapılandırması mevcut; henüz gerçek bir Mac üzerinde doğrulanmadı.** Windows tarafında otomatik testler ve Electron etkileşim kontrolleri çalıştırıldı. Bu proje geliştirme aşamasındadır.
+**macOS sürümünün entegrasyonları ve paketleme akışı mevcut; henüz gerçek bir Mac üzerinde doğrulanmadı.** Windows'un yeni masaüstü katmanı derlendi ve Win32 API yükleme kontrolünden geçti; Explorer, Win+D ve çoklu pencere davranışı için cihaz testi gerekir. Bu proje geliştirme aşamasındadır. Derlemenin başarılı olması, masaüstü etkileşimlerinin doğrulandığı anlamına gelmez.
 
 | Özellik | macOS | Windows |
 | --- | --- | --- |
 | Kumaş fiziği, ağırlık, renk ve boyutlandırma | Ortak kod; Mac testi gerekli | Uygulandı |
 | Dosya saklama / geri getirme | Ortak kod; Mac testi gerekli | Uygulandı |
 | Şeffaf pencere, boş alanlarda tıklama geçişi | Mac testi gerekli | Uygulandı |
-| Gerçek masaüstü seviyesine sabitleme | Cocoa / Node-API katmanı; Mac testi gerekli | Henüz yok; normal pencere sırası |
-| Kapalı masaüstü simgelerini sayma | Henüz yok | Explorer üzerinden salt okunur |
-| Oturum açılışında başlatma seçeneği | Henüz yok | Uygulandı |
-| Dağıtım yapılandırması | Intel + Apple Silicon için Universal DMG / ZIP | NSIS kurulum EXE |
+| Gerçek masaüstü seviyesine sabitleme | Cocoa / Node-API; Mac testi gerekli | Win32 sıralama katmanı; cihaz testi gerekli |
+| Kapalı masaüstü simgelerini sayma | Finder, Otomasyon izniyle; Mac testi gerekli | Explorer üzerinden salt okunur |
+| Oturum açılışında başlatma seçeneği | Kurulu `.app`, gerektiğinde sistem onayı; Mac testi gerekli | Uygulandı |
+| Dağıtım akışı | GitHub Actions: Universal DMG / ZIP | GitHub Actions: NSIS kurulum EXE |
 
-Birincil ekran desteklenir. macOS yerel katmanı pencereyi masaüstü simgelerinin hemen üstüne, normal uygulama pencerelerinin altına yerleştirmeyi amaçlar. Katman derlenmemişse uygulama uyarı vererek normal pencere olarak açılır. Windows'ta masaüstüne kalıcı sabitleme henüz uygulanmadı.
+Birincil ekran desteklenir. macOS yerel katmanı pencereyi masaüstü simgelerinin hemen üstüne, normal uygulama pencerelerinin altına yerleştirir. Katman derlenmemişse uygulama uyarı vererek normal pencere olarak açılır. Windows yardımcısı halıyı Explorer masaüstünün hemen üstünde tutar; normal pencereler üstte kalır. Sağ tık menüsü açıldığında sıralama geçici olarak serbest bırakılır. Yardımcı Win+D sonrası halıyı geri gösterir, gizle komutuna müdahale etmez ve Explorer yeniden başladığında masaüstünü tekrar bulur. Başka uygulamaların pencere ebeveynlerini veya masaüstü ayarlarını değiştirmez.
 
 ## Kaynak koddan çalıştırma
 
@@ -51,7 +51,7 @@ npm install
 npm start
 ```
 
-Windows simge okuyucusu ilk açılışta sistemdeki .NET Framework derleyicisiyle kullanıcı veri klasöründe derlenir. Simgeler Explorer'ın MSAA arayüzünden salt okunur alınır. Okuyucu kullanılamıyorsa simge sayacı hata durumunu gösterir; sıfır simge varmış gibi davranmaz.
+Kaynaktan çalıştırırken Windows simge okuyucusu ve masaüstü yardımcısı sistemdeki .NET Framework derleyicisiyle kullanıcı veri klasöründe derlenir. Kurulum paketinde yardımcılar önceden derlenmiş olarak bulunur; son kullanıcıda derleyici aranmaz. Simgeler Explorer'ın MSAA arayüzünden salt okunur alınır. Okuyucu kullanılamıyorsa simge sayacı hata durumunu gösterir; sıfır simge varmış gibi davranmaz.
 
 ### macOS
 
@@ -69,6 +69,10 @@ npm start
 ```
 
 `npm run native`, macOS masaüstü katmanını Intel ve Apple Silicon için derler. macOS dosya işlemleri için standart Masaüstü erişim izni isteyebilir.
+
+Simge sayımı için Finder'a **Otomasyon** izni gerekir. İlk okumada macOS izin isteyebilir. Reddederseniz tekrar tekrar izin istenmez; sağ tık menüsünden **Simge erişimini yeniden dene** kullanılabilir. Sistem Ayarları → Gizlilik ve Güvenlik → Otomasyon bölümündeki Finder izni kontrol edilebilir. Ekran kaydı veya erişilebilirlik izni kullanılmaz; Finder'dan yalnızca simge adları ve mantıksal ekran konumları okunur.
+
+macOS otomatik başlangıcı geliştirme sırasında Electron'u yanlışlıkla kaydetmemek için yalnızca paketlenmiş `.app` sürümünde açılabilir. Uygulamayı Applications klasörüne taşıyın. macOS onay isterse menüdeki **Oturum açma ayarlarını aç** düğmesiyle ilgili ayarlara gidin.
 
 ### Gerçek dosyalara dokunmadan deneme
 
@@ -99,11 +103,11 @@ Adres: [http://127.0.0.1:4173](http://127.0.0.1:4173). Tarayıcı önizlemesi ge
 | Dosya saklama | Doğrudan masaüstündeki dosya veya klasörleri halıya bırakın. |
 | Dosyaları geri getirme | Sağ tık → **saklanan** / **Altındakiler**; tek tek ↗ veya **Hepsini masaüstüne geri koy**. |
 | Gösterme / gizleme | macOS: `⌘⇧H`, Windows: `Ctrl+Shift+H`; tepsi menüsü de kullanılabilir. |
-| Windows ile başlatma | Sağ tık → **Windows ile birlikte başlat**; işareti kaldırmak otomatik başlangıcı kapatır. Demo modunda pasiftir. |
+| Otomatik başlatma | Sağ tık → **Windows / macOS ile birlikte başlat**; işareti kaldırmak kapatır. Demo modunda pasiftir. macOS'ta kurulu `.app` gerekir. |
 
-Renk, ağırlık, boyut ve konum yeniden açılışta hatırlanır. Windows başlangıç durumu işletim sisteminden okunur; uygulama ilk açılışta kendiliğinden başlangıca eklenmez. Geliştirme klasörünü taşırsanız başlangıç seçeneğini kapatıp yeniden açın.
+Renk, ağırlık, boyut ve konum yeniden açılışta hatırlanır. Başlangıç durumu işletim sisteminden okunur; uygulama ilk açılışta kendiliğinden başlangıca eklenmez. Windows geliştirme klasörünü taşırsanız başlangıç seçeneğini kapatıp yeniden açın.
 
-**Kapalı simge** sayısı ile **saklanan dosya** sayısı farklıdır. Windows'ta merkezi halının görünür şekli altında kalan masaüstü simgeleri ayrıca sayılır; bu işlem dosyaları taşımaz. Kabarıklıklar ise halıya bırakılarak saklanan dosyalardan oluşur.
+**Kapalı simge** sayısı ile **saklanan dosya** sayısı farklıdır. Merkezi halının görünür şekli altında kalan masaüstü simgeleri ayrıca sayılır; bu işlem dosyaları taşımaz. Kabarıklıklar ise halıya bırakılarak saklanan dosyalardan oluşur. macOS'ta Finder izni reddedilmişse sıfır yerine kullanılamıyor durumu gösterilir.
 
 ## Saklanan dosyalar ve kurtarma
 
@@ -122,6 +126,10 @@ Dosya içerikleri uygulama tarafından okunmaz veya internete gönderilmez. Hesa
 ## Tek dosya olarak paketleme
 
 Paketleme komutları yapılandırılmıştır; bu repo önceden üretilmiş bir kurulum dosyası içermez. Çıktılar `dist/` klasörüne yazılır.
+
+### GitHub üzerinden derleme
+
+`.github/workflows/build.yml`, `main` dalına gönderimde ve elle **Actions → Desktop installers → Run workflow** komutuyla çalışır. macOS ve Windows makinelerinde birim testleri, yerel derleme, yerel yükleme kontrolü ve paketleme yapılır. Başarılı çalışmanın **Artifacts** bölümünden `hali-macOS` veya `hali-Windows` indirilir. macOS arşivinde tek bir Universal `.dmg`, Windows arşivinde tek bir kurulum `.exe` bulunması hedeflenir. Akış ilk kez gerçekten çalıştırılıp başarılı olmadan paket varmış gibi kabul edilmemelidir. Apple imza hesabı veya noter onayı kullanılmaz.
 
 ### macOS: imzasız DMG
 
@@ -150,9 +158,11 @@ NSIS kurulum dosyası hedeflenir. Bu repo imza sertifikası içermez; imzasız p
 ```sh
 npm test
 npm run test:app
+npm run native
+npm run test:native
 ```
 
-Birim testleri dosya bütünlüğünü, isim çakışmalarını, kesinti kurtarmasını, kumaş fiziğini, boyutlandırmayı, simge kapsamını ve başlangıç ayarını kapsar. Electron testi ayrı bir kullanıcı profili ve örnek dosyalar kullanır; ekran görüntülerini `artifacts/` klasörüne yazar.
+Birim testleri dosya bütünlüğünü, isim çakışmalarını, kesinti kurtarmasını, kumaş fiziğini, boyutlandırmayı, Finder yanıtları ve izin hatalarını, simge kapsamını, Windows pencere kimliklerini ve iki platformun başlangıç ayarlarını kapsar. Electron testi ayrı bir kullanıcı profili ve örnek dosyalar kullanır; ekran görüntülerini `artifacts/` klasörüne yazar. `test:native` macOS modülünü gerçek Electron pencere kimliğiyle yükler veya Windows yardımcısının Win32 bağlamasını kontrol eder; etkileşimli masaüstü doğrulamasının yerine geçmez.
 
 Odaklı arayüz kontrolleri:
 
@@ -163,6 +173,8 @@ npx electron scripts/smoke.cjs --startup-only
 ```
 
 Başlangıç testi Windows kayıt defterine yazmak yerine bellek içi bir işletim sistemi adaptörü kullanır. Gerçek oturum açılışı ve macOS masaüstü davranışı ayrıca cihaz üzerinde doğrulanmalıdır.
+
+İlk cihaz doğrulaması için [platform test listesi](docs/platform-testing.md) kullanılabilir.
 
 ## Proje yapısı
 

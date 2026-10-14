@@ -30,6 +30,7 @@
     <div id="counters">
       <button id="icon-count" aria-live="polite" title="Halının kapattığı masaüstü simgeleri">Simgeler okunuyor…</button>
       <button id="file-count" aria-live="polite" title="Sürükleyerek saklanan dosyalar">0 saklanan</button>
+      <button id="icons-retry" hidden>Simge erişimini yeniden dene</button>
     </div>
     <button id="resize-toggle" aria-pressed="false">↔ Boyutlandır</button>
     <div class="weight-control">
@@ -38,8 +39,9 @@
       <div id="weight-ends"><span>Hafif</span><span>Ağır</span></div>
     </div>
     <div id="startup-control" hidden>
-      <label class="startup-option"><input id="startup-toggle" type="checkbox"><span>Windows ile birlikte başlat</span></label>
+      <label class="startup-option"><input id="startup-toggle" type="checkbox"><span id="startup-label">Windows ile birlikte başlat</span></label>
       <small id="startup-note" hidden>Önizlemede kullanılamaz.</small>
+      <button id="startup-settings" hidden>Oturum açma ayarlarını aç ↗</button>
     </div>
   </div>
   <div id="hint">Herhangi bir noktadan tut. Boyutlandırmak için sağ tıkla.</div>

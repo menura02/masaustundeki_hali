@@ -4,6 +4,8 @@ contextBridge.exposeInMainWorld('hali', {
   icons: () => ipcRenderer.invoke('hali:icons'),
   startupStatus: () => ipcRenderer.invoke('hali:startup-status'),
   setStartup: enabled => ipcRenderer.invoke('hali:startup-set', enabled),
+  startupSettings: () => ipcRenderer.invoke('hali:startup-settings'),
+  retryIcons: () => ipcRenderer.invoke('hali:icons-retry'),
   stash: (files, position) => ipcRenderer.invoke('hali:stash', files.map(f => webUtils.getPathForFile(f)), position),
   restore: id => ipcRenderer.invoke('hali:restore', id),
   mouse: active => ipcRenderer.send('hali:mouse', Boolean(active)),

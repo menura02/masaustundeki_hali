@@ -14,13 +14,17 @@ let resizeMode=false;
 let suppressContextMenuUntil=0;
 let startupState=config.startup??{supported:false,enabled:false},startupBusy=false;
 function syncStartup(){
-  $('startup-control').hidden=config.platform!=='win32';
-  $('startup-toggle').checked=startupState.enabled;
+  $('startup-control').hidden=!['win32','darwin'].includes(config.platform);
+  $('startup-label').textContent=config.platform==='darwin'?'macOS ile birlikte başlat':'Windows ile birlikte başlat';
+  $('startup-toggle').checked=startupState.enabled||Boolean(startupState.requiresApproval);
   $('startup-toggle').disabled=!startupState.supported||startupBusy;
-  $('startup-note').hidden=!demo;
+  const note=startupState.requiresApproval?'macOS onayı bekleniyor. Oturum açma ayarlarından Halı’ya izin verin.':demo?'Önizlemede kullanılamaz.':startupState.reason==='packaged-required'?'macOS otomatik başlangıcı kurulu .app sürümünde kullanılabilir.':'';
+  $('startup-note').textContent=note;$('startup-note').hidden=!note;
+  $('startup-settings').hidden=!startupState.requiresApproval;
+  fitControls();
 }
 async function refreshStartup(){
-  if(!api?.startupStatus||config.platform!=='win32'||startupBusy)return;
+  if(!api?.startupStatus||!['win32','darwin'].includes(config.platform)||startupBusy)return;
   startupBusy=true;syncStartup();
   try{startupState=await api.startupStatus();}catch(error){notify(error.message);}
   finally{startupBusy=false;syncStartup();}
@@ -28,21 +32,29 @@ async function refreshStartup(){
 $('startup-toggle').addEventListener('change',async()=>{
   if(startupBusy)return;
   const enabled=$('startup-toggle').checked;startupBusy=true;syncStartup();
-  try{startupState=await api.setStartup(enabled);notify(startupState.enabled?'Windows açıldığında Halı da başlayacak.':'Windows ile otomatik başlatma kapatıldı.');}
+  try{startupState=await api.setStartup(enabled);notify(startupState.requiresApproval?'macOS oturum açma ayarlarında onay gerekiyor.':startupState.enabled?'Oturum açıldığında Halı da başlayacak.':'Otomatik başlatma kapatıldı.');}
   catch(error){try{startupState=await api.startupStatus();}catch{}notify(error.message);}
   finally{startupBusy=false;syncStartup();showControls();}
 });
+$('startup-settings').onclick=async()=>{try{await api.startupSettings();}catch(error){notify(error.message);}};
 let desktopState={available:false,icons:[]},coveredNames='';
 function updateCoverage(){
   if(!cloth)return;
   const covered=coveredIcons(cloth,desktopState.icons);
   $('icon-count').textContent=desktopState.available?`${covered.length} kapalı simge`:'Simge sayacı kullanılamıyor';
+  $('icons-retry').hidden=demo||desktopState.available;
+  fitControls();
   const key=JSON.stringify([desktopState.available,covered.map(p=>p.name)]);
   if(key===coveredNames)return;
   coveredNames=key;$('covered-icons').replaceChildren();
   for(const p of covered){const row=document.createElement('div');row.textContent=p.name;$('covered-icons').append(row);}
-  if(!covered.length)$('covered-icons').textContent=desktopState.available?'Halının altında masaüstü simgesi yok.':'Masaüstü simgeleri okunamadı.';
+  if(!covered.length)$('covered-icons').textContent=desktopState.available?'Halının altında masaüstü simgesi yok.':desktopState.permissionRequired?'Finder erişimi gerekiyor. Sistem Ayarları → Gizlilik ve Güvenlik → Otomasyon bölümünden izin verip yeniden deneyin.':'Masaüstü simgeleri okunamadı.';
 }
+$('icons-retry').onclick=async()=>{
+  $('icons-retry').disabled=true;
+  try{desktopState=await api.retryIcons();coveredNames='';updateCoverage();notify(desktopState.available?'Masaüstü simgeleri okunuyor.':'Simge erişimini kontrol edip yeniden deneyin.');}
+  catch(error){notify(error.message);}finally{$('icons-retry').disabled=false;}
+};
 async function pollIcons(){
   if(demo||!api?.icons){$('icon-count').hidden=true;return;}
   try{desktopState=await api.icons();}catch{desktopState={available:false,icons:[]};}
@@ -76,6 +88,12 @@ function closeControls(){
   clearTimeout(controlsTimer);$('toolbar').hidden=true;
   if(wasOpen)api?.menuOpen?.(false);
   activeMouse(cloth.contains(pointer.x,pointer.y)||Boolean(edgeAt(pointer.x,pointer.y))||isUI(document.elementFromPoint(pointer.x,pointer.y)));
+}
+function fitControls(){
+  if($('toolbar').hidden)return;
+  const r=$('toolbar').getBoundingClientRect();
+  $('toolbar').style.left=`${Math.max(12,Math.min(width-r.width-12,r.x))}px`;
+  $('toolbar').style.top=`${Math.max(12,Math.min(height-r.height-12,r.y))}px`;
 }
 function openControls(x,y){
   refreshStartup();

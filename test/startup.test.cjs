@@ -38,3 +38,18 @@ test('demo, unsupported platforms, invalid input and rejected writes cannot sile
   app.setLoginItemSettings = () => {};
   assert.throws(() => startup.set(true), /uygulanamadı/);
 });
+test('macOS packaged app uses main login service and reports pending system approval',()=>{
+  const writes=[];let state={openAtLogin:false,status:'not-registered'};
+  const app={isPackaged:true,getLoginItemSettings:options=>{assert.deepEqual(options,{});return state;},
+    setLoginItemSettings:options=>{writes.push(options);state={openAtLogin:false,status:options.openAtLogin?'requires-approval':'not-registered'};}};
+  const startup=new Startup(app,{platform:'darwin'});
+  assert.equal(startup.status().enabled,false);assert.equal(writes.length,0);
+  assert.equal(startup.set(true).requiresApproval,true);assert.deepEqual(writes[0],{openAtLogin:true});
+  state={openAtLogin:true,status:'enabled'};assert.equal(startup.status().enabled,true);
+  assert.equal(startup.set(false).enabled,false);assert.deepEqual(writes[1],{openAtLogin:false});
+});
+test('macOS development launch cannot accidentally register Electron instead of the app',()=>{
+  let writes=0;
+  const startup=new Startup({isPackaged:false,setLoginItemSettings:()=>writes++},{platform:'darwin'});
+  assert.equal(startup.status().reason,'packaged-required');assert.throws(()=>startup.set(true));assert.equal(writes,0);
+});

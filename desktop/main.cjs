@@ -6,9 +6,10 @@ const { execFile } = require('node:child_process');
 const { Vault } = require('./vault.cjs');
 const { DesktopIcons } = require('./icons.cjs');
 const { Startup } = require('./startup.cjs');
+const { WindowsDesktop } = require('./windows-desktop.cjs');
 const demo = process.argv.includes('--demo');
 let win, tray, vault, settings = {}, nativeLayer, saveTimer;
-let desktopIcons;
+let desktopIcons,windowsDesktop;
 let contextMenuOpen = false;
 const uiURL = pathToFileURL(path.join(__dirname, '../ui/index.html')).href;
 if (!app.requestSingleInstanceLock()) app.quit();
@@ -19,11 +20,12 @@ else {
 function trusted(event) { return event.sender === win?.webContents && event.senderFrame?.url.split('?')[0] === uiURL; }
 function publish() { win.webContents.send('hali:update', vault.list()); }
 function attachDesktop() {
-  if (nativeLayer && !demo) nativeLayer.attach(win.getNativeWindowHandle());
+  if (nativeLayer && !demo) nativeLayer.attach(win.getNativeWindowHandle(),contextMenuOpen);
+  windowsDesktop?.setInteractive(contextMenuOpen);
 }
 async function boot() {
   const startup = new Startup(app, { demo });
-  if(!demo){desktopIcons=new DesktopIcons(path.join(app.getPath('userData'),'icon-reader'));desktopIcons.start().catch(console.error);}
+  if(!demo){desktopIcons=new DesktopIcons(path.join(app.getPath('userData'),'icon-reader'),{resources:app.isPackaged?process.resourcesPath:undefined});desktopIcons.start().catch(console.error);}
   if (!demo) vault = await new Vault(app.getPath('desktop')).init();
   if (!demo && process.platform === 'win32') execFile('attrib.exe', ['+H', vault.root], { windowsHide: true }, error => { if (error) console.warn(error.message); });
   const settingsPath = path.join(app.getPath('userData'), 'rug.json');
@@ -44,6 +46,7 @@ async function boot() {
   win.on('blur', () => {
     if (!contextMenuOpen) return;
     contextMenuOpen = false;
+    attachDesktop();
     win.webContents.send('hali:command', 'dismiss-menu');
   });
   win.webContents.on('will-navigate', event => event.preventDefault());
@@ -60,16 +63,25 @@ async function boot() {
     if (!trusted(event)) throw new Error('Unknown sender');
     return startup.set(enabled);
   });
+  ipcMain.handle('hali:startup-settings',event=>{
+    if(!trusted(event)||process.platform!=='darwin'||!nativeLayer?.openLoginSettings)throw new Error('Oturum açma ayarları kullanılamıyor.');
+    nativeLayer.openLoginSettings();
+  });
+  ipcMain.handle('hali:icons-retry',async event=>{
+    if(!trusted(event)||demo)throw new Error('Simge okuyucu kullanılamıyor.');
+    desktopIcons.stop();await desktopIcons.start();return desktopIcons.snapshot();
+  });
   ipcMain.handle('hali:stash', async (event, paths, position) => {
     if (!trusted(event) || demo) throw new Error('Dosya işlemi kullanılamıyor.');
     try { return await vault.stash(paths, position); } finally { publish(); }
   });
   ipcMain.handle('hali:icons',event=>{
     if(!trusted(event))throw new Error('Unknown sender');
-    const state=desktopIcons?.state||{available:false,icons:[]};
+    const state=desktopIcons?.snapshot()||{available:false,icons:[]};
     const bounds=win.getContentBounds();
-    return {available:state.available,icons:state.icons.map(icon=>{
-      const p=screen.screenToDipPoint({x:Math.round(icon.x+icon.width/2),y:Math.round(icon.y+Math.min(icon.width,icon.height)/2)});
+    return {available:state.available,permissionRequired:Boolean(state.permissionRequired),error:state.error,icons:state.icons.map(icon=>{
+      const center={x:Math.round(icon.x+icon.width/2),y:Math.round(icon.y+Math.min(icon.width,icon.height)/2)};
+      const p=state.coordinateSpace==='dip'?center:screen.screenToDipPoint(center);
       return {name:icon.name,x:p.x-bounds.x,y:p.y-bounds.y};
     })};
   });
@@ -83,6 +95,7 @@ async function boot() {
   ipcMain.on('hali:menu-open', (event, open) => {
     if (!trusted(event)) return;
     contextMenuOpen = Boolean(open);
+    attachDesktop();
     if (contextMenuOpen) {
       if (!demo) win.setIgnoreMouseEvents(false);
       win.focus();
@@ -106,6 +119,10 @@ async function boot() {
   });
   await win.loadURL(uiURL + (demo ? '?demo=1' : ''));
   win.showInactive(); attachDesktop();
+  if(!demo&&process.platform==='win32'){
+    windowsDesktop=new WindowsDesktop(path.join(app.getPath('userData'),'desktop-layer'),{resources:app.isPackaged?process.resourcesPath:undefined});
+    windowsDesktop.start(win).catch(error=>console.error('Masaüstü katmanı:',error.message));
+  }
   if (!demo) win.setIgnoreMouseEvents(true, { forward: true });
   const icon = nativeImage.createFromDataURL('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAEklEQVQ4T2NkoBAwUqifYdQAAgAFAAAB9HFNpgAAAABJRU5ErkJggg==');
   // Draw the tray glyph locally as a small woven square.
@@ -129,5 +146,5 @@ async function boot() {
   });
   screen.on('display-metrics-changed', () => { if (!demo) win.setBounds(screen.getPrimaryDisplay().bounds); });
 }
-app.on('will-quit', () => {globalShortcut.unregisterAll();desktopIcons?.stop();});
+app.on('will-quit', () => {globalShortcut.unregisterAll();desktopIcons?.stop();windowsDesktop?.stop();});
 app.on('window-all-closed', () => app.quit());
