@@ -1,0 +1,30 @@
+{
+  "name": "hali-desktop",
+  "version": "0.1.0",
+  "description": "A little room for your desktop mess",
+  "private": true,
+  "main": "desktop/main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "demo": "electron . --demo",
+    "preview": "node scripts/preview.cjs",
+    "test": "node --test test/*.test.cjs",
+    "test:app": "electron scripts/smoke.cjs",
+    "native": "node scripts/build-native.cjs",
+    "dist:mac": "npm run native && electron-builder --mac --universal",
+    "dist:win": "electron-builder --win"
+  },
+  "devDependencies": {
+    "electron": "^42.0.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "studio.hali.desktop",
+    "productName": "Halı",
+    "files": ["desktop/**", "ui/**", "native/build/*.node", "package.json"],
+    "asarUnpack": ["native/build/*.node"],
+    "mac": {"target": ["dmg", "zip"], "category": "public.app-category.utilities", "hardenedRuntime": true},
+    "win": {"target": ["nsis" ]},
+    "nsis": {"oneClick": false, "allowToChangeInstallationDirectory": true}
+  }
+}

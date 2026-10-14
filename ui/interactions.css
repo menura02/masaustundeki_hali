@@ -1,0 +1,30 @@
+/* Resize through the cursor, without a visible window or selection box. */
+#resize-frame{position:absolute;pointer-events:none;visibility:hidden;border:0}
+.resize-mode #resize-frame{visibility:visible;border:1px dashed #e9e2ca99;z-index:2}
+#resize-frame i{position:absolute;width:10px;height:10px;background:#faf9f3;border:1px solid #777f67;border-radius:2px;box-shadow:0 1px 4px #0003}
+#resize-frame i:nth-child(1){left:-5px;top:-5px}#resize-frame i:nth-child(2){right:-5px;top:-5px}
+#resize-frame i:nth-child(3){left:-5px;bottom:-5px}#resize-frame i:nth-child(4){right:-5px;bottom:-5px}
+#resize-help{position:absolute;z-index:4;transform:translateX(-50%);display:flex;align-items:center;gap:14px;padding:9px 12px;background:#faf9f3f5;border:1px solid #d1d2c4;border-radius:10px;font-size:10px;white-space:nowrap}
+#resize-done{padding:5px 9px;background:#717963;color:#fff;border-radius:5px;font-size:11px}
+#toolbar #resize-toggle{font-size:11px;text-align:left;padding:10px 0;border-top:1px solid #d9dbcf}
+#hint{display:none}
+#counters{display:flex;flex-direction:column;border-top:1px solid #d9dbcf;padding:5px 0}
+#toolbar #counters button{padding:7px 0;text-align:left;font-size:11px;color:#747c66}
+#toolbar #counters button:hover{color:#34382d}
+#drawer h2{font:22px Georgia,serif;display:flex;justify-content:space-between}
+#icon-note{font-size:11px;line-height:1.6;color:#8b907e}
+#covered-icons{font-size:12px;line-height:1.8;max-height:160px;overflow:auto}
+#toolbar{z-index:6;transform:none!important;animation:menu-in .14s ease-out;box-shadow:0 8px 35px #25281924}
+#toolbar{flex-direction:column;align-items:stretch;gap:0;height:auto;width:264px;padding:13px 16px;border-radius:16px}
+.toolbar-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-bottom:11px}
+.weight-control{border-top:1px solid #d9dbcf;padding-top:12px;display:grid;grid-template-columns:1fr auto;gap:9px;font-size:11px}
+.weight-control output{color:#848a77;font-size:10px;font-variant-numeric:tabular-nums}
+#weight{grid-column:1/-1;width:100%;margin:2px 0;accent-color:#7b493c;cursor:ew-resize}
+#weight:focus-visible{outline:2px solid #7b493c;outline-offset:4px;border-radius:4px}
+#weight-ends{grid-column:1/-1;display:flex;justify-content:space-between;color:#929783;font-size:9px}
+#startup-control{border-top:1px solid #d9dbcf;margin-top:12px;padding-top:12px}
+.startup-option{display:flex;align-items:center;gap:9px;font-size:11px;cursor:pointer}
+#startup-toggle{margin:0;accent-color:#7b493c;width:14px;height:14px}
+#startup-note{display:block;margin:8px 0 0 23px;font-size:9px;color:#929783}
+@keyframes menu-in{from{opacity:0;translate:0 4px}to{opacity:1;translate:0 0}}
+@media(prefers-reduced-motion:reduce){#toolbar{animation:none}}

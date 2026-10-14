@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'">
+  <title>Halı — Dağınıklığa yer aç.</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="interactions.css">
+</head>
+<body>
+  <div id="room" hidden>
+    <header><span class="brand">halı<span class="brand-dot">®</span></span><span class="edition">MASAÜSTÜ İÇİN KÜÇÜK BİR RİTÜEL</span><span class="preview-tag">ETKİLEŞİMLİ ÖNİZLEME</span></header>
+    <section class="intro"><span class="eyebrow">BİRAZ DAĞINIKLIK İYİDİR.</span><h1>Her şeyin bir yeri var.<br><i>Bazılarınınki halının altı.</i></h1><p>Dosyaları sürükle. Köşesinden kaldır. Biraz rahatla.</p></section>
+    <div id="demo-files" aria-label="Örnek masaüstü dosyaları"></div>
+    <footer><span>DÜZENLEMEK ZORUNDA DEĞİLSİN.</span><span>SADECE BİRAZ YER AÇ. ↗</span></footer>
+  </div>
+  <canvas id="rug" aria-label="Etkileşimli halı: herhangi bir noktasından tutup sürükleyin; boyutlandırmak için sağ tıklayın"></canvas>
+  <div id="resize-frame" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+  <div id="resize-help" class="interactive" hidden><span>Boyutlandır · Kenarları sürükle</span><button id="resize-done">Bitti ↵</button></div>
+  <div id="toolbar" class="interactive" aria-label="Halı kontrolleri" hidden>
+    <div class="toolbar-actions">
+    <button id="drawer-toggle" title="Halının altındakiler"><span class="small-rug">▧</span><span>Altındakiler</span></button>
+    <span class="divider"></span>
+    <button class="swatch wine active" data-theme="wine" aria-label="Kök boya" aria-pressed="true"></button>
+    <button class="swatch indigo" data-theme="indigo" aria-label="Gece mavisi" aria-pressed="false"></button>
+    <button class="swatch moss" data-theme="moss" aria-label="Yosun yeşili" aria-pressed="false"></button>
+    <span class="divider"></span><button id="reset" title="Halıyı düzelt" aria-label="Halıyı düzelt">↺</button>
+    </div>
+    <div id="counters">
+      <button id="icon-count" aria-live="polite" title="Halının kapattığı masaüstü simgeleri">Simgeler okunuyor…</button>
+      <button id="file-count" aria-live="polite" title="Sürükleyerek saklanan dosyalar">0 saklanan</button>
+    </div>
+    <button id="resize-toggle" aria-pressed="false">↔ Boyutlandır</button>
+    <div class="weight-control">
+      <label for="weight">Halı ağırlığı</label><output id="weight-value" for="weight">Dengeli · 50</output>
+      <input id="weight" type="range" min="0" max="100" step="1" value="50" aria-describedby="weight-ends">
+      <div id="weight-ends"><span>Hafif</span><span>Ağır</span></div>
+    </div>
+    <div id="startup-control" hidden>
+      <label class="startup-option"><input id="startup-toggle" type="checkbox"><span>Windows ile birlikte başlat</span></label>
+      <small id="startup-note" hidden>Önizlemede kullanılamaz.</small>
+    </div>
+  </div>
+  <div id="hint">Herhangi bir noktadan tut. Boyutlandırmak için sağ tıkla.</div>
+  <aside id="drawer" class="interactive" hidden>
+    <div class="drawer-top"><span class="eyebrow">GÖZDEN UZAK. ELİNİN ALTINDA.</span><button id="drawer-close" aria-label="Kapat">×</button></div>
+    <h2>Kapalı masaüstü simgeleri</h2>
+    <p id="icon-note">Simgeler yerinde kalır; halının kapattığı simgeler burada gösterilir.</p>
+    <div id="covered-icons"></div>
+    <h2>Saklanan dosyalar<span id="drawer-number">00</span></h2>
+    <p id="storage-note">Öğeler güvenle saklanır. Bir dokunuşla masaüstüne döner.</p>
+    <div id="entries"></div>
+    <button id="restore-all">Hepsini masaüstüne geri koy ↗</button>
+  </aside>
+  <div id="toast" role="status" hidden></div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
