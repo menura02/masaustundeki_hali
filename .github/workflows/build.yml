@@ -25,19 +25,32 @@ jobs:
         with:
           node-version: '24'
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
-      - name: Unit tests
-        run: npm test
+        run: |
+          npm install --global pnpm@11.25.0
+          pnpm install --frozen-lockfile
       - name: Build native desktop helpers
         run: npm run native
+      - name: Unit tests
+        run: npm test
       - name: Native module smoke test
         run: npm run test:native
+      - name: Electron interaction test
+        run: npm run test:app
+      - name: Idle renderer test
+        run: pnpm exec electron scripts/smoke.cjs --performance-only
+      - name: Recovery and resize UI test
+        run: pnpm exec electron scripts/smoke.cjs --reliability-only
       - name: Package unsigned macOS app
         if: runner.os == 'macOS'
-        run: npx electron-builder --mac --universal --publish never
-      - name: Package Windows installer
+        run: pnpm exec electron-builder --mac --universal --publish never
+      - name: Package single-file Windows app
         if: runner.os == 'Windows'
-        run: npx electron-builder --win --x64 --publish never
+        run: pnpm exec electron-builder --win --x64 --publish never
+      - name: Packaged application smoke test
+        run: node scripts/package-smoke.cjs
+      - name: Single file Windows launcher test
+        if: runner.os == 'Windows'
+        run: node scripts/package-smoke.cjs --portable
       - uses: actions/upload-artifact@v7
         with:
           name: hali-${{ runner.os }}

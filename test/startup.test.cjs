@@ -53,3 +53,10 @@ test('macOS development launch cannot accidentally register Electron instead of 
   const startup=new Startup({isPackaged:false,setLoginItemSettings:()=>writes++},{platform:'darwin'});
   assert.equal(startup.status().reason,'packaged-required');assert.throws(()=>startup.set(true));assert.equal(writes,0);
 });
+
+test('portable startup registers the permanent launcher instead of the extracted temp executable',()=>{
+  const {app,writes}=fixture(true);
+  const portable='C:\\My Apps\\Hali-Portable.exe';
+  new Startup(app,{platform:'win32',executable:'C:\\Temp\\extracted\\Halı.exe',portableExecutable:portable}).set(true);
+  assert.equal(writes[0].path,portable);assert.deepEqual(writes[0].args,[]);
+});

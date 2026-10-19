@@ -1,12 +1,13 @@
 const STARTUP_NAME = 'HaliDesktop';
 
 class Startup {
-  constructor(app, { platform = process.platform, executable = process.execPath, demo = false } = {}) {
+  constructor(app, { platform = process.platform, executable = process.execPath, portableExecutable=process.env.PORTABLE_EXECUTABLE_FILE,demo = false } = {}) {
     this.app = app;
     this.platform = platform;
     this.supported = !demo && (platform === 'win32' || (platform === 'darwin' && app.isPackaged));
     this.reason = demo ? 'demo' : platform === 'darwin' && !app.isPackaged ? 'packaged-required' : 'unsupported';
-    this.options = platform === 'darwin' ? {} : { path: executable, args: app.isPackaged ? [] : [`"${app.getAppPath()}"`] };
+    const launchPath=platform==='win32'&&app.isPackaged&&portableExecutable?portableExecutable:executable;
+    this.options = platform === 'darwin' ? {} : { path: launchPath, args: app.isPackaged ? [] : [`"${app.getAppPath()}"`] };
   }
   status() {
     if (!this.supported) return { supported: false, enabled: false, reason: this.reason };

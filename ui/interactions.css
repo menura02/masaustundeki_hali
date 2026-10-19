@@ -8,12 +8,12 @@
 #resize-done{padding:5px 9px;background:#717963;color:#fff;border-radius:5px;font-size:11px}
 #toolbar #resize-toggle{font-size:11px;text-align:left;padding:10px 0;border-top:1px solid #d9dbcf}
 #hint{display:none}
+#platform-note,#recovery-note{font-size:11px;line-height:1.6;color:#704d36;background:#efe8d9;border-radius:6px;padding:10px;margin:8px 0}
+#open-vault{font-size:11px;padding:8px 0;color:#66705b;text-decoration:underline}
 #counters{display:flex;flex-direction:column;border-top:1px solid #d9dbcf;padding:5px 0}
 #toolbar #counters button{padding:7px 0;text-align:left;font-size:11px;color:#747c66}
 #toolbar #counters button:hover{color:#34382d}
 #drawer h2{font:22px Georgia,serif;display:flex;justify-content:space-between}
-#icon-note{font-size:11px;line-height:1.6;color:#8b907e}
-#covered-icons{font-size:12px;line-height:1.8;max-height:160px;overflow:auto}
 #toolbar{z-index:6;transform:none!important;animation:menu-in .14s ease-out;box-shadow:0 8px 35px #25281924}
 #toolbar{flex-direction:column;align-items:stretch;gap:0;height:auto;width:264px;padding:13px 16px;border-radius:16px}
 .toolbar-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-bottom:11px}

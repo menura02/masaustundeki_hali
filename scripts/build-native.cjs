@@ -5,9 +5,8 @@ const root = path.resolve(__dirname, '..');
 fs.mkdirSync(path.join(root, 'native/build'), { recursive: true });
 if(process.platform==='win32'){
   const framework=path.join(process.env.WINDIR||'C:\\Windows','Microsoft.NET','Framework64','v4.0.30319');
-  for(const name of ['DesktopIcons','DesktopLayer']){
+  for(const name of ['DesktopLayer']){
     const refs=['/reference:System.Web.Extensions.dll'];
-    if(name==='DesktopIcons')refs.push('/reference:'+path.join(framework,'Accessibility.dll'));
     execFileSync(path.join(framework,'csc.exe'),['/nologo','/target:exe','/out:'+path.join(root,'native/build',name+'.exe'),...refs,path.join(root,'desktop',name+'.cs')],{stdio:'inherit',windowsHide:true});
   }
   process.exit(0);

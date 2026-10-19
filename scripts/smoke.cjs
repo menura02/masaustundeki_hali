@@ -14,6 +14,10 @@ app.setPath('userData', profile);
 process.argv.push('--demo');
 const output = path.resolve(__dirname, '../artifacts');
 let errors = [];
+if(process.argv.includes('--reliability-only')){
+  const handle=ipcMain.handle.bind(ipcMain);
+  ipcMain.handle=(channel,listener)=>handle(channel,channel==='hali:init'?async(...args)=>({...await listener(...args),demo:false,entries:[{id:'recovery-test',name:'Kurtarılan-test',recovered:true}],recovery:{needed:true,messages:['Kasa kaydı kurtarıldı.']}}):listener);
+}
 // Exercise the real IPC/UI with an in-memory OS adapter. Never change this PC's startup registry in tests.
 const startupWrites=[];
 if(process.argv.includes('--startup-only')){
@@ -36,17 +40,41 @@ app.on('browser-window-created', (_event, win) => {
     log('Page loaded');
     try {
       const evaluate = source => win.webContents.executeJavaScript(source);
-      await evaluate(`new Promise(resolve=>{const check=()=>document.querySelector('.demo-file')?resolve(true):requestAnimationFrame(check);check();})`);
+      await evaluate(`new Promise(resolve=>{const check=()=>document.getElementById('weight').getAttribute('aria-valuetext')?resolve(true):requestAnimationFrame(check);check();})`);
       log('Demo initialized');
       await evaluate(`window.smokePointers=[];document.addEventListener('pointerdown',e=>window.smokePointers.push({x:e.clientX,y:e.clientY}));`);
       await evaluate(`new Promise(resolve=>{let n=12;const tick=()=>--n?requestAnimationFrame(tick):resolve(true);tick();})`);
       await fs.mkdir(output, { recursive: true });
       await fs.writeFile(path.join(output,'hali-preview.png'),(await win.webContents.capturePage()).toPNG());
-      assert.equal(await evaluate(`document.getElementById('file-count').textContent`),'0 saklanan');
+      assert.equal(await evaluate(`document.getElementById('file-count').textContent`),process.argv.includes('--reliability-only')?'1 saklanan':'0 saklanan');
       assert.equal(await evaluate(`document.getElementById('toolbar').contains(document.getElementById('counters'))`),true);
       assert.equal(await evaluate(`document.getElementById('file-count').offsetParent===null`),true);
       assert.equal(await evaluate(`getComputedStyle(document.getElementById('resize-frame')).visibility`),'hidden');
       assert.equal(await evaluate(`document.getElementById('toolbar').hidden`),true);
+      assert.equal(await evaluate(`document.querySelector('#icon-count,#icons-retry,#covered-icons')===null&&typeof window.hali.icons==='undefined'&&typeof window.hali.retryIcons==='undefined'`),true);
+      if(process.argv.includes('--reliability-only')){
+        assert.equal(await evaluate(`document.getElementById('drawer').hidden`),false);
+        assert.equal(await evaluate(`document.getElementById('recovery-note').hidden`),false);
+        assert.match(await evaluate(`document.getElementById('recovery-note').textContent`),/özgün adı/);
+        assert.equal(await evaluate(`document.querySelector('.entry-name').textContent`),'Kurtarılan-test');
+        await evaluate(`document.getElementById('drawer-close').click()`);
+        win.webContents.send('hali:platform',{state:'fallback',message:'Masaüstü katmanı kullanılamıyor.'});
+        await evaluate(`new Promise(resolve=>setTimeout(resolve,50))`);
+        assert.equal(await evaluate(`document.getElementById('platform-note').hidden`),false);
+        const center=await evaluate(`(()=>{const r=document.getElementById('resize-frame').getBoundingClientRect();return {x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2)};})()`);
+        win.webContents.sendInputEvent({type:'mouseMove',...center});win.webContents.sendInputEvent({type:'mouseDown',...center,button:'left',clickCount:1});
+        await evaluate(`new Promise(resolve=>setTimeout(resolve,100))`);
+        assert.equal(await evaluate(`document.getElementById('hint').textContent`),'Yavaşça bırak. Halı yerini bulur.');
+        await evaluate(`window.dispatchEvent(new Event('resize'));document.dispatchEvent(new PointerEvent('pointermove',{clientX:500,clientY:400,bubbles:true}));true;`);
+        assert.match(await evaluate(`document.getElementById('hint').textContent`),/Herhangi bir noktadan/);
+        assert.deepEqual(errors,[]);
+        await evaluate(`document.getElementById('weight').value='83';document.getElementById('weight').dispatchEvent(new Event('input'));window.hali.init()`);
+        app.once('will-quit',()=>{
+          try{assert.equal(JSON.parse(syncFS.readFileSync(path.join(profile,'rug.json'),'utf8')).weight,83);log('PASS: recovery UI, platform failure status, resize during drag and immediate quit settings flush.');clearTimeout(timeout);}
+          catch(error){log(error.stack);app.exit(1);}
+        });
+        app.quit();return;
+      }
       if(process.argv.includes('--performance-only')){
         await evaluate(`window.paintCount=0;const originalClear=CanvasRenderingContext2D.prototype.clearRect;CanvasRenderingContext2D.prototype.clearRect=function(...args){window.paintCount++;return originalClear.apply(this,args);};true;`);
         await evaluate(`new Promise(resolve=>setTimeout(resolve,1200))`);
@@ -116,7 +144,7 @@ app.on('browser-window-created', (_event, win) => {
       if(process.argv.includes('--counters-only')){
         await evaluate(`document.getElementById('rug').dispatchEvent(new MouseEvent('contextmenu',{clientX:560,clientY:500,bubbles:true,cancelable:true}));`);
         assert.equal(await evaluate(`document.getElementById('file-count').offsetParent===null`),false);
-        assert.equal(await evaluate(`document.getElementById('toolbar').contains(document.getElementById('icon-count'))`),true);
+        assert.equal(await evaluate(`document.getElementById('icon-count')`),null);
         await evaluate(`new Promise(resolve=>setTimeout(resolve,200))`);
         await fs.writeFile(path.join(output,'hali-context-menu.png'),(await win.webContents.capturePage()).toPNG());
         await evaluate(`document.getElementById('file-count').click()`);
@@ -138,15 +166,16 @@ app.on('browser-window-created', (_event, win) => {
       const afterCenter=await evaluate(`(()=>{const r=document.getElementById('resize-frame').getBoundingClientRect();return {x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2)};})()`);
       assert.ok(Math.hypot(afterCenter.x-center.x,afterCenter.y-center.y)>4);
       await evaluate(`document.getElementById('reset').click();new Promise(resolve=>{let n=100;const tick=()=>--n?requestAnimationFrame(tick):resolve(true);tick();})`);
-      await evaluate(`document.getElementById('rug').dispatchEvent(new MouseEvent('contextmenu',{clientX:560,clientY:500,bubbles:true,cancelable:true}));`);
+      const menuPoint=await evaluate(`(()=>{const r=document.getElementById('resize-frame').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2};})()`);
+      await evaluate(`document.getElementById('rug').dispatchEvent(new MouseEvent('contextmenu',{clientX:${menuPoint.x},clientY:${menuPoint.y},bubbles:true,cancelable:true}));`);
       assert.equal(await evaluate(`document.getElementById('toolbar').hidden`),false);
       assert.equal(await evaluate(`document.getElementById('file-count').offsetParent===null`),false);
       await evaluate(`document.querySelector('[data-theme="indigo"]').click();document.getElementById('drawer-toggle').click()`);
       assert.equal(await evaluate(`document.querySelector('[data-theme="indigo"]').getAttribute('aria-pressed')`),'true');
       assert.equal(await evaluate(`document.getElementById('drawer').hidden`),false);
-      await evaluate(`document.getElementById('drawer-close').click();const dt=new DataTransfer();dt.setData('text/plain','demo-1');document.dispatchEvent(new DragEvent('drop',{clientX:560,clientY:500,dataTransfer:dt,bubbles:true}));`);
+      await evaluate(`document.getElementById('drawer-close').click();const dt=new DataTransfer();dt.setData('text/plain','demo-1');document.dispatchEvent(new DragEvent('drop',{clientX:${menuPoint.x},clientY:${menuPoint.y},dataTransfer:dt,bubbles:true}));`);
       assert.equal(await evaluate(`document.getElementById('file-count').textContent`),'1 saklanan');
-      await evaluate(`document.getElementById('rug').dispatchEvent(new MouseEvent('contextmenu',{clientX:560,clientY:500,bubbles:true,cancelable:true}));`);
+      await evaluate(`document.getElementById('rug').dispatchEvent(new MouseEvent('contextmenu',{clientX:${menuPoint.x},clientY:${menuPoint.y},bubbles:true,cancelable:true}));`);
       await evaluate(`document.getElementById('file-count').click()`);
       await evaluate(`(()=>{const r=document.getElementById('restore-all').getBoundingClientRect(),o={clientX:r.x+10,clientY:r.y+10,bubbles:true};document.getElementById('restore-all').dispatchEvent(new PointerEvent('pointermove',o));document.getElementById('restore-all').dispatchEvent(new PointerEvent('pointerdown',o));})()`);
       await evaluate(`new Promise(resolve=>setTimeout(resolve,50))`);
@@ -178,20 +207,20 @@ app.on('browser-window-created', (_event, win) => {
       assert.equal(await evaluate(`getComputedStyle(document.getElementById('resize-frame')).visibility`),'visible');
       assert.equal(await evaluate(`document.getElementById('resize-help').hidden`),false);
       const original = await evaluate(`(()=>{const r=document.getElementById('resize-frame').getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height};})()`);
-      const resizeCorner={x:Math.round(original.x+original.width),y:Math.round(original.y+original.height)};
+      const resizeCorner={x:Math.round(original.x),y:Math.round(original.y)};
       win.webContents.sendInputEvent({type:'mouseMove',...resizeCorner});
       await evaluate(`new Promise(resolve=>requestAnimationFrame(resolve))`);
       win.webContents.sendInputEvent({type:'mouseDown',...resizeCorner,button:'left',clickCount:1});
       await evaluate(`new Promise(resolve=>requestAnimationFrame(resolve))`);
-      win.webContents.sendInputEvent({type:'mouseMove',x:resizeCorner.x+100,y:resizeCorner.y-40});
+      win.webContents.sendInputEvent({type:'mouseMove',x:resizeCorner.x-100,y:resizeCorner.y+40});
       await evaluate(`new Promise(resolve=>requestAnimationFrame(resolve))`);
-      win.webContents.sendInputEvent({type:'mouseUp',x:resizeCorner.x+100,y:resizeCorner.y-40,button:'left',clickCount:1});
+      win.webContents.sendInputEvent({type:'mouseUp',x:resizeCorner.x-100,y:resizeCorner.y+40,button:'left',clickCount:1});
       await evaluate(`document.dispatchEvent(new PointerEvent('pointerup',{pointerId:1,bubbles:true}));`);
       const resized=await evaluate(`(()=>{const r=document.getElementById('resize-frame').getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height};})()`);
       log('Resize '+JSON.stringify({original,resized,resizeCorner,pointers:await evaluate(`window.smokePointers`),hint:await evaluate(`document.getElementById('hint').textContent`)}));
       assert.ok(Math.abs(resized.width-original.width-100)<2);
       assert.ok(Math.abs(resized.height-original.height+40)<2);
-      assert.ok(Math.abs(resized.x-original.x)<1&&Math.abs(resized.y-original.y)<1);
+      assert.ok(Math.abs(resized.x-original.x+100)<2&&Math.abs(resized.y-original.y-40)<2);
       await fs.writeFile(path.join(output,'hali-resize-mode.png'),(await win.webContents.capturePage()).toPNG());
       await evaluate(`document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));`);
       assert.equal(await evaluate(`document.body.classList.contains('resize-mode')`),false);

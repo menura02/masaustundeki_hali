@@ -1,16 +1,25 @@
-const { app, BrowserWindow, ipcMain, screen, Tray, Menu, nativeImage, globalShortcut, dialog, session } = require('electron');
-const fs = require('node:fs/promises');
+const { app, BrowserWindow, ipcMain, screen, Tray, Menu, nativeImage, globalShortcut, dialog, session, shell } = require('electron');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { execFile } = require('node:child_process');
 const { Vault } = require('./vault.cjs');
-const { DesktopIcons } = require('./icons.cjs');
 const { Startup } = require('./startup.cjs');
 const { WindowsDesktop } = require('./windows-desktop.cjs');
-const demo = process.argv.includes('--demo');
-let win, tray, vault, settings = {}, nativeLayer, saveTimer;
-let desktopIcons,windowsDesktop;
-let iconsWatching=false;
+const {createMover}=require('./move.cjs');
+const {SettingsStore}=require('./settings.cjs');
+const packageSmoke=process.argv.includes('--package-smoke');
+const demo = process.argv.includes('--demo')||packageSmoke;
+if(packageSmoke){
+  const fs=require('node:fs'),os=require('node:os');
+  app.setPath('userData',fs.mkdtempSync(path.join(os.tmpdir(),'hali-package-smoke-')));
+}
+let win, tray, vault, settings = {}, nativeLayer, settingsStore, quitting=false,flushing=false;
+let windowsDesktop;
+let platformStatus={state:demo?'demo':'starting',message:''};
+function reportPlatform(state,message=''){
+  platformStatus={state,message};
+  if(win&&!win.isDestroyed())win.webContents.send('hali:platform',platformStatus);
+}
 let contextMenuOpen = false;
 const uiURL = pathToFileURL(path.join(__dirname, '../ui/index.html')).href;
 if (!app.requestSingleInstanceLock()) app.quit();
@@ -21,19 +30,18 @@ else {
 function trusted(event) { return event.sender === win?.webContents && event.senderFrame?.url.split('?')[0] === uiURL; }
 function publish() { win.webContents.send('hali:update', vault.list()); }
 function attachDesktop() {
-  if (nativeLayer && !demo) nativeLayer.attach(win.getNativeWindowHandle(),contextMenuOpen);
+  if (nativeLayer && !demo){try{nativeLayer.attach(win.getNativeWindowHandle(),contextMenuOpen);reportPlatform('ready');}catch{reportPlatform('fallback','Masaüstü katmanı kullanılamıyor; halı normal pencere olarak çalışıyor.');}}
   windowsDesktop?.setInteractive(contextMenuOpen);
 }
 async function boot() {
   const startup = new Startup(app, { demo });
-  if(!demo)desktopIcons=new DesktopIcons(path.join(app.getPath('userData'),'icon-reader'),{resources:app.isPackaged?process.resourcesPath:undefined});
-  if (!demo) vault = await new Vault(app.getPath('desktop')).init();
+  if (!demo) vault = await new Vault(app.getPath('desktop'),{moveExclusive:createMover({directory:path.join(app.getPath('userData'),'desktop-layer'),resources:app.isPackaged?process.resourcesPath:undefined})}).init();
   if (!demo && process.platform === 'win32') execFile('attrib.exe', ['+H', vault.root], { windowsHide: true }, error => { if (error) console.warn(error.message); });
   const settingsPath = path.join(app.getPath('userData'), 'rug.json');
-  try { settings = JSON.parse(await fs.readFile(settingsPath, 'utf8')); } catch (e) { if (e.code !== 'ENOENT') console.warn(e.message); }
+  settingsStore=new SettingsStore(settingsPath);settings=await settingsStore.load();
   if (process.platform === 'darwin' && !demo) {
     try { nativeLayer = require('../native/build/desktop.node'); }
-    catch { dialog.showErrorBox('macOS masaüstü katmanı eksik', 'Önce npm run native komutunu çalıştırın. Halı normal pencere olarak açılacak.'); }
+    catch {reportPlatform('fallback','Masaüstü katmanı yüklenemedi. Güvenli dosya taşıma için yerel modülün derlenmesi gerekiyor.');}
     app.dock?.hide();
   }
   const display = screen.getPrimaryDisplay();
@@ -54,7 +62,11 @@ async function boot() {
   session.defaultSession.setPermissionRequestHandler((_wc, _permission, callback) => callback(false));
   ipcMain.handle('hali:init', event => {
     if (!trusted(event)) throw new Error('Unknown sender');
-    return { demo, platform: process.platform, entries: vault?.list() || [], settings, startup: startup.status(), nativeDesktop: Boolean(nativeLayer) };
+    return { demo, platform: process.platform, entries: vault?.list() || [], recovery:vault?.status(),settings, startup: startup.status(), nativeDesktop: Boolean(nativeLayer),platformStatus };
+  });
+  ipcMain.handle('hali:open-vault',async event=>{
+    if(!trusted(event)||!vault)throw new Error('Kasa bu modda kullanılamıyor.');
+    const error=await shell.openPath(vault.root);if(error)throw new Error(error);
   });
   ipcMain.handle('hali:startup-status', event => {
     if (!trusted(event)) throw new Error('Unknown sender');
@@ -68,32 +80,9 @@ async function boot() {
     if(!trusted(event)||process.platform!=='darwin'||!nativeLayer?.openLoginSettings)throw new Error('Oturum açma ayarları kullanılamıyor.');
     nativeLayer.openLoginSettings();
   });
-  ipcMain.handle('hali:icons-retry',async event=>{
-    if(!trusted(event)||demo)throw new Error('Simge okuyucu kullanılamıyor.');
-    desktopIcons.stop();await desktopIcons.start();const state=desktopIcons.snapshot();if(!iconsWatching)desktopIcons.stop();return state;
-  });
-  ipcMain.on('hali:icons-watch',(event,active)=>{
-    if(!trusted(event)||demo)return;
-    const watch=Boolean(active)&&win.isVisible();
-    if(watch===iconsWatching)return;
-    iconsWatching=watch;
-    if(!watch)desktopIcons.stop();
-    else if(!desktopIcons.snapshot().permissionRequired)desktopIcons.start().catch(console.error);
-  });
-  win.on('hide',()=>{iconsWatching=false;desktopIcons?.stop();});
   ipcMain.handle('hali:stash', async (event, paths, position) => {
     if (!trusted(event) || demo) throw new Error('Dosya işlemi kullanılamıyor.');
     try { return await vault.stash(paths, position); } finally { publish(); }
-  });
-  ipcMain.handle('hali:icons',event=>{
-    if(!trusted(event))throw new Error('Unknown sender');
-    const state=desktopIcons?.snapshot()||{available:false,icons:[]};
-    const bounds=win.getContentBounds();
-    return {available:state.available,permissionRequired:Boolean(state.permissionRequired),error:state.error,icons:state.icons.map(icon=>{
-      const center={x:Math.round(icon.x+icon.width/2),y:Math.round(icon.y+Math.min(icon.width,icon.height)/2)};
-      const p=state.coordinateSpace==='dip'?center:screen.screenToDipPoint(center);
-      return {name:icon.name,x:p.x-bounds.x,y:p.y-bounds.y};
-    })};
   });
   ipcMain.handle('hali:restore', async (event, id) => {
     if (!trusted(event) || demo || typeof id !== 'string') throw new Error('Dosya işlemi kullanılamıyor.');
@@ -118,22 +107,15 @@ async function boot() {
   });
   ipcMain.on('hali:save', (event, data) => {
     if (!trusted(event) || !data || typeof data !== 'object') return;
-    settings = { theme: ['wine', 'indigo', 'moss'].includes(data.theme) ? data.theme : 'wine',
-      weight: Number.isFinite(data.weight) ? Math.max(0,Math.min(100,data.weight)) : 50,
-      x: Number.isFinite(data.x) ? Math.min(.999, Math.max(.001, data.x)) : .5,
-      y: Number.isFinite(data.y) ? Math.min(.999, Math.max(.001, data.y)) : .5,
-      w: Number.isFinite(data.w) ? Math.min(.999,Math.max(.001,data.w)) : undefined,
-      h: Number.isFinite(data.h) ? Math.min(.999,Math.max(.001,data.h)) : undefined };
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => fs.writeFile(settingsPath, JSON.stringify(settings)).catch(console.error), 300);
+    settings=settingsStore.update(data);
   });
+  if (!demo) win.setIgnoreMouseEvents(true, { forward: true });
   await win.loadURL(uiURL + (demo ? '?demo=1' : ''));
   win.showInactive(); attachDesktop();
   if(!demo&&process.platform==='win32'){
-    windowsDesktop=new WindowsDesktop(path.join(app.getPath('userData'),'desktop-layer'),{resources:app.isPackaged?process.resourcesPath:undefined});
-    windowsDesktop.start(win).catch(error=>console.error('Masaüstü katmanı:',error.message));
+    windowsDesktop=new WindowsDesktop(path.join(app.getPath('userData'),'desktop-layer'),{resources:app.isPackaged?process.resourcesPath:undefined,onStatus:available=>reportPlatform(available?'ready':'fallback',available?'':'Masaüstü katmanı başlatılamadı. Windows Güvenliği yardımcı programı engellemiş olabilir; halı normal pencere olarak çalışıyor.')});
+    windowsDesktop.start(win).catch(()=>reportPlatform('fallback','Masaüstü katmanı başlatılamadı; halı normal pencere olarak çalışıyor.'));
   }
-  if (!demo) win.setIgnoreMouseEvents(true, { forward: true });
   const icon = nativeImage.createFromDataURL('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAEklEQVQ4T2NkoBAwUqifYdQAAgAFAAAB9HFNpgAAAABJRU5ErkJggg==');
   // Draw the tray glyph locally as a small woven square.
   const pixels = Buffer.alloc(18 * 18 * 4);
@@ -155,6 +137,23 @@ async function boot() {
     if (win.isVisible()) win.hide(); else { win.showInactive(); attachDesktop(); }
   });
   screen.on('display-metrics-changed', () => { if (!demo) win.setBounds(screen.getPrimaryDisplay().bounds); });
+  if(packageSmoke){
+    const fs=require('node:fs/promises');
+    const report=process.argv.find(arg=>arg.startsWith('--health-report='))?.slice('--health-report='.length);
+    const timeout=setTimeout(()=>app.exit(1),30000);
+    try{
+      await win.webContents.executeJavaScript(`new Promise(resolve=>{const ready=()=>document.getElementById('weight').getAttribute('aria-valuetext')?resolve(true):requestAnimationFrame(ready);ready();})`);
+      const result=await require('./health.cjs').verifyMove({resources:app.isPackaged&&process.platform==='win32'?process.resourcesPath:undefined});
+      if(process.platform==='darwin')require('../native/build/desktop.node').attach(win.getNativeWindowHandle(),false);
+      if(report){await fs.mkdir(path.dirname(report),{recursive:true});await fs.writeFile(report,JSON.stringify({...result,packaged:app.isPackaged,platform:process.platform,portableExecutable:process.env.PORTABLE_EXECUTABLE_FILE,startupExecutable:startup.options.path}));}
+      clearTimeout(timeout);app.quit();
+    }catch(error){console.error(error);clearTimeout(timeout);app.exit(1);}
+  }
 }
-app.on('will-quit', () => {globalShortcut.unregisterAll();desktopIcons?.stop();windowsDesktop?.stop();});
+app.on('will-quit', () => {globalShortcut.unregisterAll();windowsDesktop?.stop();});
+app.on('before-quit',event=>{
+  if(quitting||!settingsStore)return;
+  event.preventDefault();if(flushing)return;flushing=true;
+  Promise.resolve(vault?.queue).then(()=>settingsStore.flush()).then(()=>{quitting=true;app.quit();}).catch(error=>{flushing=false;dialog.showErrorBox('Ayarlar kaydedilemedi',error.message+'\nKayıt tekrar denenebilir; uygulama açık bırakıldı.');});
+});
 app.on('window-all-closed', () => app.quit());

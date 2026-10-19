@@ -17,6 +17,7 @@ class DesktopLayer {
   [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr hwnd,int command);
   [DllImport("user32.dll",SetLastError=true)] static extern bool SetWindowPos(IntPtr hwnd,IntPtr after,int x,int y,int cx,int cy,uint flags);
   [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr hwnd,out uint processId);
+  [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)] static extern bool MoveFileEx(string source,string destination,uint flags);
   static volatile bool running=true, interactive=false;
   const uint PositionOnly=0x0001|0x0002|0x0010|0x0200; // NOSIZE, NOMOVE, NOACTIVATE, NOOWNERZORDER
   static IntPtr Desktop() {
@@ -28,6 +29,12 @@ class DesktopLayer {
     return desktop;
   }
   static void Main(string[] args) {
+    if(args.Length==3&&args[0]=="--move-exclusive"){
+      Console.OutputEncoding=new System.Text.UTF8Encoding(false);
+      // No REPLACE_EXISTING or COPY_ALLOWED: preserve collisions and stay on-volume.
+      bool ok=MoveFileEx(args[1],args[2],8);int error=ok?0:Marshal.GetLastWin32Error();
+      Console.WriteLine(new JavaScriptSerializer().Serialize(new {ok=ok,code=error==80||error==183?"EEXIST":"WIN32_"+error,error=ok?null:new System.ComponentModel.Win32Exception(error).Message}));return;
+    }
     if(args.Length==1&&args[0]=="--probe"){
       IsWindow(IntPtr.Zero);
       Console.WriteLine(new JavaScriptSerializer().Serialize(new {probe=true,pointerSize=IntPtr.Size}));return;

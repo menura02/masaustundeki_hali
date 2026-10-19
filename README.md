@@ -15,7 +15,7 @@ Görsel, örnek dosyalarla çalışan önizleme modundan alınmıştır. Normal 
 - **Ayrı boyutlandırma modu:** Normal sürükleme boyutlandırmayı tetiklemez. Sağ tık menüsünden açılan modda kenar ve köşe tutamaçları görünür.
 - **Üç dokuma rengi:** Kök boya, gece mavisi ve yosun yeşili. Doku yerel olarak Canvas ile üretilir.
 - **Dosya saklama ve geri getirme:** Masaüstünden bırakılan dosya ve klasörler geri alınabilir biçimde saklanır. Dosya saklamak veya geri getirmek halının görünümünü ve fiziğini değiştirmez.
-- **Sağ tık menüsü:** Renk, ağırlık, boyutlandırma, kapalı simge ve saklanan dosya bilgileri burada bulunur. Normal görünümde altta sayaç veya ayar çubuğu yoktur.
+- **Sağ tık menüsü:** Renk, ağırlık, boyutlandırma ve saklanan dosya bilgileri burada bulunur. Normal görünümde altta sayaç veya ayar çubuğu yoktur.
 - **Oturum açılışında başlatma:** Windows ve kurulu macOS `.app` sürümünde kullanılabilir; macOS sistem onayı gerekiyorsa arayüz bunu gösterir.
 - **Menü çubuğu / sistem tepsisi ve kısayol:** Halıyı gösterme, gizleme ve düzeltme.
 
@@ -29,20 +29,20 @@ Görsel, örnek dosyalarla çalışan önizleme modundan alınmıştır. Normal 
 | Dosya saklama / geri getirme | Ortak kod; Mac testi gerekli | Uygulandı |
 | Şeffaf pencere, boş alanlarda tıklama geçişi | Mac testi gerekli | Uygulandı |
 | Gerçek masaüstü seviyesine sabitleme | Cocoa / Node-API; Mac testi gerekli | Win32 sıralama katmanı; cihaz testi gerekli |
-| Kapalı masaüstü simgelerini sayma | Finder, Otomasyon izniyle; Mac testi gerekli | Explorer üzerinden salt okunur |
 | Oturum açılışında başlatma seçeneği | Kurulu `.app`, gerektiğinde sistem onayı; Mac testi gerekli | Uygulandı |
-| Dağıtım akışı | GitHub Actions: Universal DMG / ZIP | GitHub Actions: NSIS kurulum EXE |
+| Dağıtım akışı | GitHub Actions: Universal DMG / ZIP | GitHub Actions: tek dosyalık portable EXE |
 
 Birincil ekran desteklenir. macOS yerel katmanı pencereyi masaüstü simgelerinin hemen üstüne, normal uygulama pencerelerinin altına yerleştirir. Katman derlenmemişse uygulama uyarı vererek normal pencere olarak açılır. Windows yardımcısı halıyı Explorer masaüstünün hemen üstünde tutar; normal pencereler üstte kalır. Sağ tık menüsü açıldığında sıralama geçici olarak serbest bırakılır. Yardımcı Win+D sonrası halıyı geri gösterir, gizle komutuna müdahale etmez ve Explorer yeniden başladığında masaüstünü tekrar bulur. Başka uygulamaların pencere ebeveynlerini veya masaüstü ayarlarını değiştirmez.
 
 ## Kaynak koddan çalıştırma
 
-Node.js 22 veya üzeri ve npm gerekir. Kaynaktan çalıştırma içindir; paketlenmiş uygulamayı kullanan kişinin Node.js kurmasına gerek yoktur.
+Node.js 24 ve pnpm 11.25.0 gerekir. Kaynaktan çalıştırma içindir; paketlenmiş uygulamayı kullanan kişinin Node.js kurmasına gerek yoktur.
 
 ```sh
 git clone https://github.com/menura02/masaustundeki_hali.git
 cd masaustundeki_hali
-npm install
+npm install --global pnpm@11.25.0
+pnpm install --frozen-lockfile
 ```
 
 ### Windows
@@ -51,7 +51,7 @@ npm install
 npm start
 ```
 
-Kaynaktan çalıştırırken Windows simge okuyucusu ve masaüstü yardımcısı sistemdeki .NET Framework derleyicisiyle kullanıcı veri klasöründe derlenir. Kurulum paketinde yardımcılar önceden derlenmiş olarak bulunur; son kullanıcıda derleyici aranmaz. Simgeler Explorer'ın MSAA arayüzünden salt okunur alınır. Okuyucu kullanılamıyorsa simge sayacı hata durumunu gösterir; sıfır simge varmış gibi davranmaz.
+Kaynaktan çalıştırırken Windows masaüstü ve güvenli taşıma yardımcısı sistemdeki .NET Framework derleyicisiyle kullanıcı veri klasöründe derlenir. Kurulum paketinde yardımcı önceden derlenmiş olarak bulunur; son kullanıcıda derleyici aranmaz. Masaüstü simgelerinin adları veya konumları okunmaz.
 
 ### macOS
 
@@ -69,8 +69,6 @@ npm start
 ```
 
 `npm run native`, macOS masaüstü katmanını Intel ve Apple Silicon için derler. macOS dosya işlemleri için standart Masaüstü erişim izni isteyebilir.
-
-Simge sayımı için Finder'a **Otomasyon** izni gerekir. İlk okumada macOS izin isteyebilir. Reddederseniz tekrar tekrar izin istenmez; sağ tık menüsünden **Simge erişimini yeniden dene** kullanılabilir. Sistem Ayarları → Gizlilik ve Güvenlik → Otomasyon bölümündeki Finder izni kontrol edilebilir. Ekran kaydı veya erişilebilirlik izni kullanılmaz; Finder'dan yalnızca simge adları ve mantıksal ekran konumları okunur.
 
 macOS otomatik başlangıcı geliştirme sırasında Electron'u yanlışlıkla kaydetmemek için yalnızca paketlenmiş `.app` sürümünde açılabilir. Uygulamayı Applications klasörüne taşıyın. macOS onay isterse menüdeki **Oturum açma ayarlarını aç** düğmesiyle ilgili ayarlara gidin.
 
@@ -107,17 +105,17 @@ Adres: [http://127.0.0.1:4173](http://127.0.0.1:4173). Tarayıcı önizlemesi ge
 
 Renk, ağırlık, boyut ve konum yeniden açılışta hatırlanır. Başlangıç durumu işletim sisteminden okunur; uygulama ilk açılışta kendiliğinden başlangıca eklenmez. Windows geliştirme klasörünü taşırsanız başlangıç seçeneğini kapatıp yeniden açın.
 
-**Kapalı simge** sayısı ile **saklanan dosya** sayısı farklıdır. Merkezi halının görünür şekli altında kalan masaüstü simgeleri ayrıca sayılır; bu işlem dosyaları taşımaz. macOS'ta Finder izni reddedilmişse sıfır yerine kullanılamıyor durumu gösterilir.
-
 ## Saklanan dosyalar ve kurtarma
 
-Dosyalar masaüstündeki **`.hali-vault`** klasöründe benzersiz kimliklerle saklanır. `index.json`, özgün adlarını ve halı üzerindeki bırakılma konumlarını tutar.
+Dosyalar masaüstündeki **`.hali-vault`** klasöründe benzersiz kimliklerle saklanır. `index.json`, özgün adlarını ve halı üzerindeki bırakılma konumlarını tutar. `index.backup.json` yedeği ve `.metadata/` altında dosya başına ad kaydı ayrıca saklanır.
 
 - **`.hali-vault` klasörünü silmeyin.** Uygulamayı kaldırmadan önce dosyaları panelden geri getirin.
 - Uygulamadan çıkmak dosyaları otomatik geri taşımaz. Yeniden açıp panelden geri getirebilirsiniz.
-- Geri getirme sırasında aynı adlı bir dosya varsa mevcut dosya korunur; geri getirilen öğeye `(Halı 1)` gibi bir ek eklenir.
+- Geri getirme sırasında aynı adlı bir dosya varsa mevcut dosya korunur; geri getirilen öğeye `(Halı 1)` gibi bir ek eklenir. Hedef dosya işlem sırasında son anda oluşsa da üzerine yazılmaz.
 - Taşıma öncesi günlük kaydı yazılır. Yarım kalan işlemler yeniden açılışta disk üzerindeki durumdan toparlanır.
-- Aynı disk üzerinde atomik taşıma kullanılır; farklı diskler arasında kopyala / sil işlemi yapılmaz. Taşıma başarısızsa hata gösterilir. Bir grubun bir kısmı taşındıysa taşınanlar panelde görünmeye devam eder.
+- Aynı disk üzerinde atomik taşıma kullanılır; farklı diskler arasında kopyala / sil işlemi yapılmaz. Güvenli taşıma Windows üzerinde `MoveFileExW` (üzerine yazma olmadan), macOS üzerinde `renamex_np(RENAME_EXCL)` kullanır. Yerel bileşen çalışmıyorsa güvensiz bir taşıma yöntemine geçilmez; hata gösterilir. Bir grubun bir kısmı taşındıysa taşınanlar panelde görünmeye devam eder.
+
+Ana kayıt eksik veya bozuksa yedek ve dosya başına metaveriyle kurtarma denenir. Eski kasalarda ad bilgisi bulunamayan dosyalar içerikleri korunarak **Kurtarılan-…** adıyla panelde listelenir. Panelde kurtarma açıklaması ve **Kasa klasörünü aç** düğmesi bulunur. Bozuk ana kayıt ayrıca saklanır.
 
 Uygulama açılmıyorsa `.hali-vault` içindeki dosyalar `index.json` kaydına göre elle özgün adlarına döndürülebilir. macOS Finder'da `⌘⇧.` gizli öğeleri gösterir; Windows'ta Dosya Gezgini'nin gizli öğeler görünümü kullanılabilir.
 
@@ -129,7 +127,7 @@ Paketleme komutları yapılandırılmıştır; bu repo önceden üretilmiş bir 
 
 ### GitHub üzerinden derleme
 
-`.github/workflows/build.yml`, `main` dalına gönderimde ve elle **Actions → Desktop installers → Run workflow** komutuyla çalışır. macOS ve Windows makinelerinde birim testleri, yerel derleme, yerel yükleme kontrolü ve paketleme yapılır. Başarılı çalışmanın **Artifacts** bölümünden `hali-macOS` veya `hali-Windows` indirilir. macOS arşivinde tek bir Universal `.dmg`, Windows arşivinde tek bir kurulum `.exe` bulunması hedeflenir. Akış ilk kez gerçekten çalıştırılıp başarılı olmadan paket varmış gibi kabul edilmemelidir. Apple imza hesabı veya noter onayı kullanılmaz.
+`.github/workflows/build.yml`, `main` dalına gönderimde ve elle **Actions → Desktop installers → Run workflow** komutuyla çalışır. macOS ve Windows makinelerinde kilitli pnpm kurulumu, yerel derleme, birim testleri, Electron etkileşim/kurtarma/boşta çalışma testleri, paketleme ve paketli uygulamanın açılış/güvenli taşıma kontrolü yapılır. Başarılı çalışmanın **Artifacts** bölümünden `hali-macOS` veya `hali-Windows` indirilir. macOS arşivinde tek bir Universal `.dmg`, Windows arşivinde çift tıklanınca açılan tek bir portable `.exe` bulunur. Akış ilk kez gerçekten çalıştırılıp başarılı olmadan paket varmış gibi kabul edilmemelidir. Apple imza hesabı veya noter onayı kullanılmaz.
 
 ### macOS: imzasız DMG
 
@@ -143,7 +141,7 @@ Komut yerel katmanı derler ve Universal DMG / ZIP çıktıları hedefler. Tek k
 
 Bu yapılandırma henüz bir Mac üzerinde derlenip doğrulanmadı. Windows üzerinde macOS yerel katmanı ve DMG üretimi yapılmaz.
 
-### Windows: kurulum EXE
+### Windows: çift tıklayınca açılan tek EXE
 
 Windows üzerinde:
 
@@ -151,18 +149,22 @@ Windows üzerinde:
 npm run dist:win
 ```
 
-NSIS kurulum dosyası hedeflenir. Bu repo imza sertifikası içermez; imzasız paket işletim sistemi uyarısı gösterebilir.
+Çıktı `dist/Hali-0.1.0-Portable.exe` dosyasıdır. Bu tek dosyayı istediğiniz klasöre kopyalayıp çift tıklayın; Node.js kurmak veya yanında `win-unpacked` klasörünü taşımak gerekmez. Uygulama gerekli bileşenleri açılışta geçici klasöre çıkarır. İlk açılış bu nedenle birkaç saniye sürebilir.
+
+Ayarlar kullanıcı profilinde, saklanan dosyalar masaüstündeki `.hali-vault` klasöründe kalır; EXE içine gömülmez. Başlangıç seçeneği geçici çıkarma klasörünü değil asıl portable EXE’yi kaydeder. EXE’yi sonradan taşırsanız başlangıç seçeneğini kapatıp yeniden açın.
+
+Bu repo imza sertifikası içermez; Windows güvenlik uyarısı gösterebilir. İsteğe bağlı klasik kurulum dosyası için `npm run dist:win:installer` kullanılabilir.
 
 ## Doğrulama
 
 ```sh
+npm run native
 npm test
 npm run test:app
-npm run native
 npm run test:native
 ```
 
-Birim testleri dosya bütünlüğünü, isim çakışmalarını, kesinti kurtarmasını, kumaş fiziğini, boyutlandırmayı, Finder yanıtları ve izin hatalarını, simge kapsamını, Windows pencere kimliklerini ve iki platformun başlangıç ayarlarını kapsar. Electron testi ayrı bir kullanıcı profili ve örnek dosyalar kullanır; ekran görüntülerini `artifacts/` klasörüne yazar. `test:native` macOS modülünü gerçek Electron pencere kimliğiyle yükler veya Windows yardımcısının Win32 bağlamasını kontrol eder; etkileşimli masaüstü doğrulamasının yerine geçmez.
+Birim testleri dosya bütünlüğünü, isim çakışmalarını, kesinti kurtarmasını, kumaş fiziğini, boyutlandırmayı, çizim döngüsünün boşta durmasını, Windows pencere kimliklerini ve iki platformun başlangıç ayarlarını kapsar. Electron testi ayrı bir kullanıcı profili ve örnek dosyalar kullanır; ekran görüntülerini `artifacts/` klasörüne yazar. `test:native` macOS modülünü gerçek Electron pencere kimliğiyle yükler veya Windows yardımcısının Win32 bağlamasını kontrol eder; dosya/klasör üzerine yazmama kontrolünü de çalıştırır; etkileşimli masaüstü doğrulamasının yerine geçmez.
 
 Odaklı arayüz kontrolleri:
 
@@ -170,19 +172,20 @@ Odaklı arayüz kontrolleri:
 npx electron scripts/smoke.cjs --counters-only
 npx electron scripts/smoke.cjs --menu-dismiss-only
 npx electron scripts/smoke.cjs --startup-only
-npx electron scripts/smoke.cjs --performance-only
+pnpm exec electron scripts/smoke.cjs --performance-only
+pnpm exec electron scripts/smoke.cjs --reliability-only
 ```
 
 Başlangıç testi Windows kayıt defterine yazmak yerine bellek içi bir işletim sistemi adaptörü kullanır. Gerçek oturum açılışı ve macOS masaüstü davranışı ayrıca cihaz üzerinde doğrulanmalıdır.
 
-Kaynak kullanımı için halı durulduğunda veya pencere gizlendiğinde çizim döngüsü durur; etkileşimle yeniden başlar. Masaüstü simgeleri yalnızca sağ tık menüsü veya dosya listesi açıkken taranır. Animasyon sırasında üçgen ağı yeniden kullanılır ve ekranın yalnızca halının kapladığı bölgesi temizlenir. Performans arayüz testi boşta/gizliyken çizimin durmasını ve renk değişimi/pencere gösterimiyle yeniden başlamasını kontrol eder.
+Kaynak kullanımı için halı durulduğunda veya pencere gizlendiğinde çizim döngüsü durur; etkileşimle yeniden başlar. Animasyon sırasında üçgen ağı yeniden kullanılır ve ekranın yalnızca halının kapladığı bölgesi temizlenir. Performans arayüz testi boşta/gizliyken çizimin durmasını ve renk değişimi/pencere gösterimiyle yeniden başlamasını kontrol eder.
 
 İlk cihaz doğrulaması için [platform test listesi](docs/platform-testing.md) kullanılabilir.
 
 ## Proje yapısı
 
 ```text
-desktop/     Electron başlangıcı, IPC, dosya kasası, simge okuyucu ve başlangıç ayarı
+desktop/     Electron başlangıcı, IPC, dosya kasası ve başlangıç ayarı
 ui/          Kumaş fiziği, dokuma dokusu ve sağ tık arayüzü
 native/      macOS masaüstü katmanı
 scripts/     Yerel derleme, önizleme sunucusu ve Electron kontrolleri
@@ -191,3 +194,9 @@ docs/        README görseli
 ```
 
 Uygulama giriş noktası `desktop/main.cjs` dosyasıdır. Render süreci sandbox ve context isolation ile çalışır; dosya işlemleri doğrulanan IPC çağrılarıyla ana süreçte yapılır.
+
+Güvenilirlik geliştirmeleri: ayarlar doğrulanır ve atomik olarak kaydedilir; normal çıkış bekleyen kaydı tamamlar. Ekran boyutu değişirken aktif tutuş güvenle bitirilir. Kumaş süre dolduğu için dondurulmaz; dinlendiğinde uyur. Platform yardımcısı çalışmazsa sağ tık menüsünde durum gösterilir.
+
+Paketleme sonrasında `node scripts/package-smoke.cjs`, paketli uygulamayı geçici profil ile açıp arayüzü ve native güvenli taşımayı kontrol eder. Gerçek masaüstüne veya başlangıç kaydına dokunmaz. Bu kontrol, kurulum programını kullanıcı sistemine kurma testinin yerine geçmez.
+
+Tek dosyalık Windows sürümü `node scripts/package-smoke.cjs --portable` ile gerçek portable başlatıcı üzerinden test edilir.

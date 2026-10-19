@@ -5,7 +5,7 @@ const fs=require('node:fs');
 const {app,BrowserWindow}=require('electron');
 const report=path.resolve(__dirname,'../artifacts/native-smoke.json');
 function record(value){fs.mkdirSync(path.dirname(report),{recursive:true});fs.writeFileSync(report,JSON.stringify(value,null,2));}
-app.whenReady().then(()=>{
+app.whenReady().then(async()=>{
   if(process.platform==='darwin'){
     const native=require('../native/build/desktop.node');
     const win=new BrowserWindow({width:120,height:120,show:false,frame:false,transparent:true});
@@ -20,7 +20,8 @@ app.whenReady().then(()=>{
     const result=JSON.parse(execFileSync(path.resolve(__dirname,'../native/build/DesktopLayer.exe'),['--probe'],{encoding:'utf8',windowsHide:true}));
     assert.equal(result.probe,true);assert.ok([4,8].includes(result.pointerSize));
   }
-  console.log('PASS: native module / helper loads. Interactive desktop behavior still requires device testing.');
-  record({passed:true,platform:process.platform,scope:'native-load-only'});
+  await require('../desktop/health.cjs').verifyMove();
+  console.log('PASS: native load and exclusive file/folder moves. Interactive desktop behavior still requires device testing.');
+  record({passed:true,platform:process.platform,scope:'native-load-and-safe-moves'});
   app.exit(0);
 }).catch(error=>{record({passed:false,error:error.message});console.error(error);app.exit(1);});

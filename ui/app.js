@@ -1,7 +1,6 @@
 import { Cloth } from './cloth.mjs';
 import { texture } from './texture.mjs';
 import { resizeEdge, resizeBounds } from './resize.mjs';
-import { coveredIcons } from './coverage.mjs';
 import { FrameLoop } from './frame-loop.mjs';
 const $ = id => document.getElementById(id);
 const api = window.hali;
@@ -9,12 +8,11 @@ let config = api ? await api.init() : { demo: true, entries: [], settings: {} };
 const demo = config.demo;
 let entries = config.entries, theme = config.settings.theme || 'wine';
 let weight=Number.isFinite(config.settings.weight)?Math.max(0,Math.min(100,config.settings.weight)):50;
-let rugTexture = texture(theme), cloth, width, height, drag = null, lastActive = null, toastTimer, awakeUntil = performance.now()+3000;
+let rugTexture = texture(theme), cloth, width, height, drag = null, lastActive = null, toastTimer;
 let controlsTimer, pointer={x:-1,y:-1};
 let resizeMode=false;
 let suppressContextMenuUntil=0;
 let startupState=config.startup??{supported:false,enabled:false},startupBusy=false;
-let iconsTimer,iconsWatching=false,iconsGeneration=0;
 let accumulator=0,restFrames=0,redraw=true,lastPaint=null;
 const frameLoop=new FrameLoop(animate);
 function syncStartup(){
@@ -41,39 +39,9 @@ $('startup-toggle').addEventListener('change',async()=>{
   finally{startupBusy=false;syncStartup();showControls();}
 });
 $('startup-settings').onclick=async()=>{try{await api.startupSettings();}catch(error){notify(error.message);}};
-let desktopState={available:false,icons:[]},coveredNames='';
-function updateCoverage(){
-  if(!cloth)return;
-  const covered=coveredIcons(cloth,desktopState.icons);
-  $('icon-count').textContent=desktopState.available?`${covered.length} kapalı simge`:'Simge sayacı kullanılamıyor';
-  $('icons-retry').hidden=demo||desktopState.available;
-  fitControls();
-  const key=JSON.stringify([desktopState.available,covered.map(p=>p.name)]);
-  if(key===coveredNames)return;
-  coveredNames=key;$('covered-icons').replaceChildren();
-  for(const p of covered){const row=document.createElement('div');row.textContent=p.name;$('covered-icons').append(row);}
-  if(!covered.length)$('covered-icons').textContent=desktopState.available?'Halının altında masaüstü simgesi yok.':desktopState.permissionRequired?'Finder erişimi gerekiyor. Sistem Ayarları → Gizlilik ve Güvenlik → Otomasyon bölümünden izin verip yeniden deneyin.':'Masaüstü simgeleri okunamadı.';
-}
-$('icons-retry').onclick=async()=>{
-  $('icons-retry').disabled=true;
-  try{desktopState=await api.retryIcons();coveredNames='';updateCoverage();notify(desktopState.available?'Masaüstü simgeleri okunuyor.':'Simge erişimini kontrol edip yeniden deneyin.');}
-  catch(error){notify(error.message);}finally{$('icons-retry').disabled=false;}
-};
-function syncIconPolling(){
-  const active=!demo&&Boolean(api?.icons)&&!document.hidden&&(!$('toolbar').hidden||!$('drawer').hidden);
-  if(active===iconsWatching)return;
-  iconsWatching=active;clearTimeout(iconsTimer);const generation=++iconsGeneration;
-  api?.watchIcons?.(active);
-  if(active)pollIcons(generation);
-}
-async function pollIcons(generation){
-  let state;
-  try{state=await api.icons();}catch{state={available:false,icons:[]};}
-  if(generation!==iconsGeneration||!iconsWatching)return;
-  desktopState=state;
-  updateCoverage();iconsTimer=setTimeout(()=>pollIcons(generation),1500);
-}
-function wake(){awakeUntil=performance.now()+6000;restFrames=0;redraw=true;frameLoop.wake();}
+function wake(){restFrames=0;redraw=true;frameLoop.wake();}
+function syncPlatform(state){$('platform-note').hidden=state?.state!=='fallback';$('platform-note').textContent=state?.message||'';fitControls();}
+api?.onPlatform?.(syncPlatform);
 function edgeAt(x,y){
   if(!resizeMode)return '';
   const edge=resizeEdge(cloth,x,y);
@@ -100,7 +68,6 @@ function closeControls(){
   const wasOpen=!$('toolbar').hidden;
   clearTimeout(controlsTimer);$('toolbar').hidden=true;
   if(wasOpen)api?.menuOpen?.(false);
-  syncIconPolling();
   activeMouse(cloth.contains(pointer.x,pointer.y)||Boolean(edgeAt(pointer.x,pointer.y))||isUI(document.elementFromPoint(pointer.x,pointer.y)));
 }
 function fitControls(){
@@ -112,7 +79,6 @@ function fitControls(){
 function openControls(x,y){
   refreshStartup();
   $('toolbar').hidden=false;
-  syncIconPolling();
   const r=$('toolbar').getBoundingClientRect();
   $('toolbar').style.left=`${Math.max(12,Math.min(width-r.width-12,x+10))}px`;
   $('toolbar').style.top=`${Math.max(12,Math.min(height-r.height-12,y+10))}px`;
@@ -138,6 +104,7 @@ function makeCloth(center,size){
   wake();
 }
 function resize(){
+  if(drag)release({pointerId:drag.pointerId});
   const size=cloth?{w:cloth.width/width*innerWidth,h:cloth.height/height*innerHeight}:config.settings.w&&config.settings.h?{w:config.settings.w*innerWidth,h:config.settings.h*innerHeight}:null;
   const center=cloth?{x:(cloth.x+cloth.width/2)/width*innerWidth,y:(cloth.y+cloth.height/2)/height*innerHeight}:config.settings.x?{x:config.settings.x*innerWidth,y:config.settings.y*innerHeight}:null;
   width=innerWidth;height=innerHeight;const dpr=Math.min(devicePixelRatio,2);canvas.width=width*dpr;canvas.height=height*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);lastPaint=null;makeCloth(center,size);positionUI();renderSamples();
@@ -151,12 +118,16 @@ function positionUI(){
 }
 function update(data){entries=data;$('file-count').textContent=`${entries.length} saklanan`;$('drawer-number').textContent=String(entries.length).padStart(2,'0');renderDrawer();renderSamples();showControls();}
 function renderDrawer(){
+  const unknown=entries.filter(entry=>entry.recovered).length;
+  const messages=config.recovery?.messages||[];
+  $('recovery-note').hidden=!unknown&&!messages.length;
+  $('recovery-note').textContent=unknown?`${unknown} öğenin özgün adı bulunamadı. Kurtarma adıyla geri alabilir veya kasayı açabilirsiniz.`:messages.join(' ');
   $('entries').replaceChildren();
   if(!entries.length){const p=document.createElement('p');p.className='empty';p.textContent='Şimdilik yalnızca huzur var.';$('entries').append(p);}
   for(const entry of entries){
     const row=document.createElement('div');row.className='entry';
     const icon=document.createElement('span');icon.className='entry-icon';icon.textContent='▤';
-    const label=document.createElement('span');label.className='entry-name';label.textContent=entry.name;label.title=entry.name;
+    const label=document.createElement('span');label.className='entry-name';label.textContent=entry.name;label.title=entry.recovered?'Özgün adı bilinmiyor; içerik korunuyor.':entry.name;
     const button=document.createElement('button');button.textContent='↗';button.title='Masaüstüne geri koy';button.setAttribute('aria-label',`${entry.name} masaüstüne geri koy`);
     button.onclick=async()=>{button.disabled=true;try{await restore(entry.id);}catch(e){notify(e.message);}finally{button.disabled=false;}};
     row.append(icon,label,button);$('entries').append(row);
@@ -180,8 +151,9 @@ function renderSamples(){
 function drawer(open){$('drawer').hidden=!open;closeControls();if(open)activeMouse(true);}
 $('drawer-toggle').onclick=()=>drawer($('drawer').hidden);
 $('file-count').onclick=()=>drawer($('drawer').hidden);
-$('icon-count').onclick=()=>drawer($('drawer').hidden);
 $('drawer-close').onclick=()=>drawer(false);
+$('open-vault').hidden=demo;
+$('open-vault').onclick=async()=>{try{await api.openVault();}catch(error){notify(error.message);}};
 $('resize-toggle').onclick=()=>setResizeMode(!resizeMode);
 $('resize-done').onclick=()=>setResizeMode(false);
 $('reset').onclick=()=>{cloth.flatten();wake();closeControls();notify('Biraz düzeldi.');};
@@ -241,6 +213,9 @@ function release(event){if(!drag)return;const id=event.pointerId??drag.pointerId
 // A drop or another desktop element may take pointer capture away from the canvas.
 document.addEventListener('pointerup',release);
 document.addEventListener('pointercancel',release);
+canvas.addEventListener('lostpointercapture',event=>{
+  if(drag&&event.pointerId===drag.pointerId&&!canvas.hasPointerCapture(event.pointerId))release(event);
+});
 window.addEventListener('blur',()=>{if(drag)release({pointerId:drag.pointerId});closeControls();});
 document.addEventListener('pointerdown',event=>{
   if($('toolbar').hidden||$('toolbar').contains(event.target))return;
@@ -301,7 +276,6 @@ function drawTriangle(tri){
   }
 }
 function animate(now,elapsed){
-  if(now>awakeUntil&&!drag)return false;
   accumulator+=elapsed;
   let stepped=false;
   while(accumulator>=1000/60){
@@ -336,5 +310,6 @@ function animate(now,elapsed){
   }
   return Boolean(drag)||restFrames<20;
 }
-document.addEventListener('visibilitychange',()=>{frameLoop.setPaused(document.hidden);syncIconPolling();if(!document.hidden)wake();});
-resize();update(entries);syncTheme();syncWeight();syncStartup();$('icon-count').hidden=demo;frameLoop.setPaused(document.hidden);
+document.addEventListener('visibilitychange',()=>{frameLoop.setPaused(document.hidden);if(!document.hidden)wake();});
+resize();update(entries);syncTheme();syncWeight();syncStartup();syncPlatform(config.platformStatus);frameLoop.setPaused(document.hidden);
+if(config.recovery?.needed&&!demo)drawer(true);

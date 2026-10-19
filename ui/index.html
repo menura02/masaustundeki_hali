@@ -28,10 +28,9 @@
     <span class="divider"></span><button id="reset" title="Halıyı düzelt" aria-label="Halıyı düzelt">↺</button>
     </div>
     <div id="counters">
-      <button id="icon-count" aria-live="polite" title="Halının kapattığı masaüstü simgeleri">Simgeler okunuyor…</button>
       <button id="file-count" aria-live="polite" title="Sürükleyerek saklanan dosyalar">0 saklanan</button>
-      <button id="icons-retry" hidden>Simge erişimini yeniden dene</button>
     </div>
+    <p id="platform-note" role="status" hidden></p>
     <button id="resize-toggle" aria-pressed="false">↔ Boyutlandır</button>
     <div class="weight-control">
       <label for="weight">Halı ağırlığı</label><output id="weight-value" for="weight">Dengeli · 50</output>
@@ -47,11 +46,10 @@
   <div id="hint">Herhangi bir noktadan tut. Boyutlandırmak için sağ tıkla.</div>
   <aside id="drawer" class="interactive" hidden>
     <div class="drawer-top"><span class="eyebrow">GÖZDEN UZAK. ELİNİN ALTINDA.</span><button id="drawer-close" aria-label="Kapat">×</button></div>
-    <h2>Kapalı masaüstü simgeleri</h2>
-    <p id="icon-note">Simgeler yerinde kalır; halının kapattığı simgeler burada gösterilir.</p>
-    <div id="covered-icons"></div>
     <h2>Saklanan dosyalar<span id="drawer-number">00</span></h2>
     <p id="storage-note">Öğeler güvenle saklanır. Bir dokunuşla masaüstüne döner.</p>
+    <p id="recovery-note" role="status" hidden></p>
+    <button id="open-vault">Kasa klasörünü aç ↗</button>
     <div id="entries"></div>
     <button id="restore-all">Hepsini masaüstüne geri koy ↗</button>
   </aside>
