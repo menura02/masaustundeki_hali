@@ -21,14 +21,14 @@ Görsel, örnek dosyalarla çalışan önizleme modundan alınmıştır. Normal 
 
 ## Platform durumu
 
-**macOS sürümünün entegrasyonları ve paketleme akışı mevcut; henüz gerçek bir Mac üzerinde doğrulanmadı.** Windows'un yeni masaüstü katmanı derlendi ve Win32 API yükleme kontrolünden geçti; Explorer, Win+D ve çoklu pencere davranışı için cihaz testi gerekir. Bu proje geliştirme aşamasındadır. Derlemenin başarılı olması, masaüstü etkileşimlerinin doğrulandığı anlamına gelmez.
+**macOS Universal DMG/ZIP, GitHub'ın Apple Silicon Mac ortamında üretildi; birim, native, arayüz ve paketli açılış testleri geçti.** Kullanıcının gerçek masaüstü, izin, Spaces ve Intel cihaz kontrolleri ayrıca yapılmalıdır. Windows'un yeni masaüstü katmanı derlendi ve Win32 API yükleme kontrolünden geçti; Explorer, Win+D ve çoklu pencere davranışı için cihaz testi gerekir. Bu proje geliştirme aşamasındadır. Derlemenin başarılı olması, masaüstü etkileşimlerinin doğrulandığı anlamına gelmez.
 
 | Özellik | macOS | Windows |
 | --- | --- | --- |
-| Kumaş fiziği, ağırlık, renk ve boyutlandırma | Ortak kod; Mac testi gerekli | Uygulandı |
+| Kumaş fiziği, ağırlık, renk ve boyutlandırma | Mac CI testleri geçti | Uygulandı |
 | Dosya saklama / geri getirme | Ortak kod; Mac testi gerekli | Uygulandı |
 | Şeffaf pencere, boş alanlarda tıklama geçişi | Mac testi gerekli | Uygulandı |
-| Gerçek masaüstü seviyesine sabitleme | Cocoa / Node-API; Mac testi gerekli | Win32 sıralama katmanı; cihaz testi gerekli |
+| Gerçek masaüstü seviyesine sabitleme | Cocoa / Node-API CI kontrolü geçti; Spaces cihaz testi gerekli | Win32 sıralama katmanı; cihaz testi gerekli |
 | Oturum açılışında başlatma seçeneği | Kurulu `.app`, gerektiğinde sistem onayı; Mac testi gerekli | Uygulandı |
 | Dağıtım akışı | GitHub Actions: Universal DMG / ZIP | GitHub Actions: tek dosyalık portable EXE |
 
@@ -139,7 +139,7 @@ CSC_IDENTITY_AUTO_DISCOVERY=false npm run dist:mac
 
 Komut yerel katmanı derler ve Universal DMG / ZIP çıktıları hedefler. Tek kullanıcıya `dist/` içindeki `.dmg` dosyası verilebilir. Kullanıcı açıp Halı'yı Applications klasörüne sürükler. Apple Developer hesabı, imza veya noter onayı bu kişisel dağıtım için yapılandırılmaz. macOS ilk açılışı engellerse kullanıcı Sistem Ayarları → Gizlilik ve Güvenlik üzerinden elle izin vermek zorunda kalabilir.
 
-Bu yapılandırma henüz bir Mac üzerinde derlenip doğrulanmadı. Windows üzerinde macOS yerel katmanı ve DMG üretimi yapılmaz.
+Universal paket [başarılı Mac derleme işiyle](https://github.com/menura02/masaustundeki_hali/actions/runs/39256906052) üretildi ve Apple Silicon üzerinde paketli açılışı test edildi. Intel cihaz testi henüz yapılmadı. Windows üzerinde macOS yerel katmanı ve DMG üretimi yapılmaz.
 
 ### Windows: çift tıklayınca açılan tek EXE
 
@@ -200,3 +200,5 @@ Güvenilirlik geliştirmeleri: ayarlar doğrulanır ve atomik olarak kaydedilir;
 Paketleme sonrasında `node scripts/package-smoke.cjs`, paketli uygulamayı geçici profil ile açıp arayüzü ve native güvenli taşımayı kontrol eder. Gerçek masaüstüne veya başlangıç kaydına dokunmaz. Bu kontrol, kurulum programını kullanıcı sistemine kurma testinin yerine geçmez.
 
 Tek dosyalık Windows sürümü `node scripts/package-smoke.cjs --portable` ile gerçek portable başlatıcı üzerinden test edilir.
+
+19 Ekim 2026 Mac çıktısı: `Hali-0.1.0-macOS-universal.dmg`. DMG tek bir dağıtım dosyasıdır; açıp Halı uygulamasını Applications klasörüne taşıyın, ardından uygulama simgesine çift tıklayın. Windows EXE ve macOS uygulaması ayrı dosyalardır.

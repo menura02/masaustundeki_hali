@@ -34,3 +34,5 @@ Windows yerel yardımcıları derlendi ve Win32 fonksiyon yükleme kontrolünden
 - Halıyı sürüklerken ekran ölçeğini/ölçüsünü değiştirin; tutuş güvenle bitmeli, yeni sürükleme çalışmalı.
 - Yalnızca test için hazırlanmış ayrı bir kasada kayıt dosyasını bozun veya kaldırın; yedek/metaveri kurtarması ve panel uyarısı görünmeli. Gerçek kullanıcı kasasıyla bu deneyi yapmayın.
 - Windows güvenlik politikası yardımcıyı engellerse açık durum mesajı olmalı; kaynak dosyalar yerinde, kasadaki dosyalar kasada korunmalı. Güvenlik ayarlarını kapatmak veya engeli aşmak testin parçası değildir.
+
+19 Ekim 2026: Mac CI derlemesi, birim testleri, native yükleme/çakışmasız taşıma, arayüz, boşta çizim, kurtarma ve paketli uygulama açılış kontrolleri Apple Silicon ortamında geçti. Universal DMG/ZIP üretildi. Yukarıdaki gerçek kullanıcı masaüstü/TCC/Spaces/oturum açılışı ve Intel cihaz kontrolleri bu sonuçla tamamlanmış sayılmaz.
